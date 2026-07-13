@@ -1,0 +1,2635 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Demo系统管理后台——V1.0.0 业务标签管理</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: "微软雅黑", "Microsoft YaHei", sans-serif; background: #F0F2F5; color: #333; overflow: hidden; height: 100vh; }
+
+        /* ===== 顶部栏 ===== */
+        .top-bar {
+            height: 48px; background: #001529; color: #FFF; display: flex; align-items: center;
+            padding: 0 20px; font-size: 14px; position: fixed; top: 0; left: 0; right: 0; z-index: 100;
+        }
+        .top-bar .logo { font-size: 15px; font-weight: bold; color: #FFF; margin-right: 24px; white-space: nowrap; }
+        .top-bar .breadcrumb { color: rgba(255,255,255,0.65); font-size: 13px; }
+        .top-bar .breadcrumb a { color: rgba(255,255,255,0.85); text-decoration: none; }
+        .top-bar .meta { margin-left: auto; color: rgba(255,255,255,0.45); font-size: 12px; white-space: nowrap; }
+
+        /* ===== 左侧目录栏 ===== */
+        .sidebar {
+            position: fixed; top: 48px; left: 0; bottom: 0; width: 240px;
+            background: #FFF; border-right: 1px solid #E8E8E8; overflow-y: auto; z-index: 50;
+            padding: 12px 0; transition: width 0.25s ease, transform 0.25s ease;
+        }
+        .sidebar.collapsed { width: 0; padding: 0; overflow: hidden; border-right: none; }
+        .sidebar::-webkit-scrollbar { width: 4px; }
+        .sidebar::-webkit-scrollbar-thumb { background: #D9D9D9; border-radius: 2px; }
+
+        .sidebar-toggle {
+            position: fixed; top: 56px; left: 240px; z-index: 60;
+            width: 24px; height: 48px; background: #FFF; border: 1px solid #E0E0E0;
+            border-left: none; border-radius: 0 6px 6px 0; cursor: pointer;
+            display: flex; align-items: center; justify-content: center;
+            font-size: 12px; color: #666; transition: left 0.25s ease;
+            box-shadow: 2px 0 4px rgba(0,0,0,0.06);
+        }
+        .sidebar-toggle:hover { background: #F0F5FF; color: #1890FF; }
+        .sidebar-toggle.collapsed { left: 0; }
+        .sidebar .sidebar-title {
+            padding: 8px 16px; font-size: 12px; color: #999; text-transform: uppercase; letter-spacing: 1px;
+        }
+        .nav-group { margin-bottom: 4px; }
+        .nav-group-title {
+            padding: 8px 16px; font-size: 13px; font-weight: bold; color: #333; cursor: pointer;
+            display: flex; align-items: center; gap: 6px; user-select: none;
+        }
+        .nav-group-title:hover { background: #F5F5F5; }
+        .nav-group-title .arrow { font-size: 10px; color: #999; transition: transform 0.2s; }
+        .nav-group-title .arrow.open { transform: rotate(90deg); }
+        .nav-group-items { overflow: hidden; }
+        .nav-group-items.collapsed { display: none; }
+        .nav-item {
+            padding: 7px 16px 7px 32px; font-size: 13px; color: #555; cursor: pointer;
+            display: flex; align-items: center; gap: 6px; transition: all 0.15s;
+            border-left: 3px solid transparent;
+        }
+        .nav-item:hover { background: #F0F5FF; color: #1890FF; }
+        .nav-item.active { background: #E6F7FF; color: #1890FF; border-left-color: #1890FF; font-weight: bold; }
+        .nav-item .dot { width: 5px; height: 5px; border-radius: 50%; background: #D9D9D9; flex-shrink: 0; }
+        .nav-item.active .dot { background: #1890FF; }
+        .nav-item .badge { font-size: 11px; background: #FF4D4F; color: #FFF; padding: 0 5px; border-radius: 8px; margin-left: auto; }
+
+        /* ===== 主内容区 ===== */
+        .main-area {
+            position: fixed; top: 48px; left: 240px; right: 0; bottom: 0;
+            display: flex; overflow: auto; transition: left 0.25s ease;
+        }
+        .main-area.expanded { left: 0; }
+        .main-area::-webkit-scrollbar { width: 8px; height: 8px; }
+        .main-area::-webkit-scrollbar-thumb { background: #C1C1C1; border-radius: 4px; }
+        .main-area::-webkit-scrollbar-corner { background: #F0F2F5; }
+
+        .proto-panel {
+            flex-shrink: 0; overflow-y: auto; overflow-x: visible;
+            background: #F5F5F5; padding: 20px;
+        }
+        .proto-panel::-webkit-scrollbar { width: 6px; }
+        .proto-panel::-webkit-scrollbar-thumb { background: #C1C1C1; border-radius: 3px; }
+
+        .desc-panel {
+            flex-shrink: 0; background: #FFF; border-left: 1px solid #E0E0E0;
+            overflow-y: auto; padding: 0;
+        }
+        .desc-panel::-webkit-scrollbar { width: 5px; }
+        .desc-panel::-webkit-scrollbar-thumb { background: #D9D9D9; border-radius: 3px; }
+
+        .desc-header {
+            padding: 16px 20px; border-bottom: 1px solid #F0F0F0;
+            position: sticky; top: 0; background: #FFF; z-index: 10;
+        }
+        .desc-header h2 { font-size: 16px; color: #333; margin-bottom: 4px; }
+        .desc-header .desc-breadcrumb { font-size: 12px; color: #999; }
+        .desc-content { padding: 16px 24px; min-width: 600px; }
+
+        .page-section { display: none; }
+        .page-section.active { display: block; }
+
+        .proto-card {
+            background: #FFF; border: 1px solid #E8E8E8; border-radius: 6px;
+            margin-bottom: 20px; overflow: hidden; min-width: 1200px;
+        }
+        .proto-card-title {
+            background: #FAFAFA; padding: 10px 16px; font-size: 13px; color: #666;
+            border-bottom: 1px solid #E8E8E8; font-weight: bold;
+        }
+        .proto-card-body { padding: 20px; }
+
+        .overview-card {
+            width: 1200px;
+            background: #FFF; border-left: 4px solid #1890FF; padding: 16px 20px;
+            margin-bottom: 20px; border-radius: 0 6px 6px 0; border: 1px solid #E8E8E8; border-left: 4px solid #1890FF;
+            min-width: 1200px;
+        }
+        .overview-card h3 { font-size: 14px; color: #1890FF; margin-bottom: 8px; }
+        .overview-card p { font-size: 14px; color: #555; line-height: 1.8; }
+
+        .c-key { color: #9B0000; font-weight: bold; }
+        .c-warn { color: #CA0606; }
+        .c-note { color: #0076FF; }
+        .c-hint { color: #D46B08; }
+        .c-green { color: #2E7D32; }
+        .c-gray { color: #999; }
+
+        .note-box {
+            background: #FFF8E1; border-left: 3px solid #D46B08; padding: 10px 14px;
+            margin: 10px 0; font-size: 13px; color: #8B6914; border-radius: 0 4px 4px 0; line-height: 1.8;
+        }
+        .info-box {
+            background: #E8F4FF; border-left: 3px solid #1890FF; padding: 10px 14px;
+            margin: 10px 0; font-size: 13px; color: #333; border-radius: 0 4px 4px 0; line-height: 1.8;
+        }
+        .danger-box {
+            background: #FFF1F0; border-left: 3px solid #FF4D4F; padding: 10px 14px;
+            margin: 10px 0; font-size: 13px; color: #A8071A; border-radius: 0 4px 4px 0; line-height: 1.8;
+        }
+
+        .desc-content .sub-title {
+            font-size: 14px; font-weight: bold; color: #333; margin-top: 16px; margin-bottom: 6px;
+            padding-left: 8px; border-left: 3px solid #1890FF;
+        }
+        .desc-content .sub-title:first-child { margin-top: 0; }
+        .desc-content p { font-size: 13px; color: #333; line-height: 2; margin-bottom: 2px; }
+        .desc-content .indent { padding-left: 16px; }
+        .desc-divider { border: none; border-top: 1px dashed #E8E8E8; margin: 16px 0; }
+
+        .mock-toolbar {
+            display: flex; align-items: center; gap: 8px; padding: 8px 12px;
+            background: #FAFAFA; border: 1px solid #E8E8E8; border-radius: 4px; margin-bottom: 12px;
+        }
+        .mock-btn {
+            display: inline-block; padding: 4px 12px; font-size: 12px; border-radius: 3px; cursor: default; white-space: nowrap;
+        }
+        .mock-btn-primary { background: #1890FF; color: #FFF; }
+        .mock-btn-default { background: #FFF; border: 1px solid #D9D9D9; color: #333; }
+        .mock-btn-danger { background: #FFF; border: 1px solid #FF4D4F; color: #FF4D4F; }
+        .mock-input {
+            display: inline-block; width: 140px; padding: 4px 8px; border: 1px solid #D9D9D9;
+            border-radius: 3px; font-size: 12px; color: #BFBFBF;
+        }
+        .mock-select {
+            display: inline-block; padding: 4px 8px; border: 1px solid #D9D9D9;
+            border-radius: 3px; font-size: 12px; color: #333; min-width: 100px;
+        }
+        .mock-divider { width: 1px; height: 20px; background: #E0E0E0; }
+
+        .mock-table { width: 100%; border-collapse: collapse; font-size: 12px; }
+        .mock-table th {
+            background: #FAFAFA; border: 1px solid #E8E8E8; padding: 8px 10px;
+            text-align: left; font-weight: bold; color: #333; white-space: nowrap;
+        }
+        .mock-table td { border: 1px solid #E8E8E8; padding: 8px 10px; color: #555; }
+        .mock-table tr.selected td { background: #E6F7FF; }
+        .mock-checkbox {
+            width: 14px; height: 14px; border: 1px solid #D9D9D9; border-radius: 2px;
+            display: inline-block; vertical-align: middle; position: relative;
+        }
+        .mock-checkbox.checked { background: #1890FF; border-color: #1890FF; }
+        .mock-checkbox.checked::after { content: "\2713"; color: #FFF; font-size: 10px; position: absolute; top: -1px; left: 1px; }
+        .mock-tag { display: inline-block; padding: 1px 6px; border-radius: 3px; font-size: 11px; margin: 1px 2px; }
+        .mock-tag-blue { background: #E6F7FF; color: #1890FF; border: 1px solid #91D5FF; }
+        .mock-tag-green { background: #F6FFED; color: #52C41A; border: 1px solid #B7EB8F; }
+        .mock-tag-orange { background: #FFF7E6; color: #FA8C16; border: 1px solid #FFD591; }
+        .mock-tag-red { background: #FFF1F0; color: #F5222D; border: 1px solid #FFA39E; }
+        .mock-tag-purple { background: #F9F0FF; color: #722ED1; border: 1px solid #D3ADF7; }
+        .mock-tag-cyan { background: #E6FFFB; color: #13C2C2; border: 1px solid #87E8DE; }
+        .mock-link { color: #1890FF; text-decoration: none; font-size: 12px; }
+
+        .highlight-box { border: 2px dashed #FF4D4F; border-radius: 4px; padding: 2px 4px; display: inline-block; }
+        .annotation-marker {
+            display: inline-block; background: #FF4D4F; color: #FFF; font-size: 10px;
+            padding: 1px 6px; border-radius: 8px; margin-left: 2px; vertical-align: middle;
+        }
+
+        .mock-pagination {
+            display: flex; justify-content: flex-end; align-items: center; gap: 4px;
+            padding: 8px 0; font-size: 12px; color: #666;
+        }
+        .mock-page-btn {
+            display: inline-block; width: 24px; height: 24px; line-height: 24px;
+            text-align: center; border: 1px solid #D9D9D9; border-radius: 3px; font-size: 11px;
+        }
+        .mock-page-active { background: #1890FF; color: #FFF; border-color: #1890FF; }
+
+        .flow-container { display: flex; align-items: center; gap: 0; margin: 12px 0; flex-wrap: wrap; }
+        .flow-node {
+            background: #FFF; border: 1px solid #D9D9D9; border-radius: 4px;
+            padding: 6px 14px; font-size: 12px; text-align: center; white-space: nowrap;
+        }
+        .flow-node-active { border-color: #1890FF; color: #1890FF; }
+        .flow-node-warn { border-color: #FF4D4F; color: #FF4D4F; }
+        .flow-node-diamond { background: #FFF8E1; border: 1px solid #D46B08; border-radius: 4px; padding: 6px 12px; font-size: 12px; color: #8B6914; }
+        .flow-arrow { font-size: 16px; color: #BFBFBF; padding: 0 6px; }
+
+        .mock-modal {
+            border: 1px solid #D9D9D9; border-radius: 6px; overflow: hidden;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.08); max-width: 560px;
+        }
+        .mock-modal-header {
+            padding: 12px 16px; border-bottom: 1px solid #F0F0F0;
+            display: flex; justify-content: space-between; align-items: center;
+        }
+        .mock-modal-header strong { font-size: 14px; }
+        .mock-modal-body { padding: 16px; }
+        .mock-modal-footer { padding: 10px 16px; border-top: 1px solid #F0F0F0; text-align: right; }
+
+        .form-label { font-size: 12px; color: #333; margin-bottom: 4px; }
+        .form-label .req { color: red; }
+
+        .impact-card {
+            background: #FFF; border-left: 4px solid #FF4D4F; padding: 16px 20px;
+            border-radius: 0 6px 6px 0; border: 1px solid #E8E8E8; border-left: 4px solid #FF4D4F;
+            min-width: 1200px;
+        }
+        .impact-card h3 { font-size: 14px; color: #FF4D4F; margin-bottom: 8px; }
+        .impact-card p { font-size: 13px; line-height: 2; color: #555; }
+
+        /* ===== 额外组件 ===== */
+        .form-row { display: flex; align-items: center; gap: 10px; margin-bottom: 12px; }
+        .form-row .form-label { width: 100px; text-align: right; margin-bottom: 0; flex-shrink: 0; }
+        .form-row .mock-input { flex: 1; }
+        .form-row .mock-select { flex: 1; }
+        .color-dot { display: inline-block; width: 14px; height: 14px; border-radius: 50%; vertical-align: middle; margin-right: 4px; border: 1px solid rgba(0,0,0,0.1); }
+        .tree-node { padding-left: 20px; position: relative; }
+        .tree-node::before { content: ""; position: absolute; left: 6px; top: 0; bottom: 12px; width: 1px; background: #D9D9D9; }
+        .tree-item { display: flex; align-items: center; gap: 6px; padding: 4px 0; font-size: 12px; position: relative; }
+        .tree-item::before { content: ""; position: absolute; left: -14px; top: 50%; width: 14px; height: 1px; background: #D9D9D9; }
+        .tree-expand { display: inline-block; width: 16px; height: 16px; line-height: 16px; text-align: center; border: 1px solid #D9D9D9; border-radius: 2px; font-size: 10px; cursor: default; background: #FFF; }
+        .mock-tabs { display: flex; border-bottom: 1px solid #E8E8E8; margin-bottom: 12px; }
+        .mock-tab { padding: 8px 16px; font-size: 13px; color: #666; cursor: default; border-bottom: 2px solid transparent; }
+        .mock-tab.active { color: #1890FF; border-bottom-color: #1890FF; font-weight: bold; }
+        .mock-badge-count { display: inline-block; background: #F0F0F0; color: #666; font-size: 11px; padding: 0 6px; border-radius: 8px; margin-left: 4px; }
+        .mock-tree-select { border: 1px solid #D9D9D9; border-radius: 3px; padding: 8px 12px; min-height: 80px; font-size: 12px; background: #FFF; }
+        .proto-left-tree { width: 260px; border-right: 1px solid #E8E8E8; padding-right: 16px; flex-shrink: 0; }
+        .proto-split-layout { display: flex; gap: 16px; }
+        .proto-right-content { flex: 1; min-width: 0; }
+        .mock-dropdown-menu { border: 1px solid #E8E8E8; border-radius: 4px; background: #FFF; box-shadow: 0 2px 8px rgba(0,0,0,0.08); display: inline-block; min-width: 160px; }
+        .mock-dropdown-item { padding: 8px 14px; font-size: 12px; color: #333; border-bottom: 1px solid #F5F5F5; }
+        .mock-dropdown-item:last-child { border-bottom: none; }
+        .mock-dropdown-item:hover { background: #F0F5FF; }
+        .mock-switch { display: inline-block; width: 36px; height: 20px; background: #1890FF; border-radius: 10px; position: relative; }
+        .mock-switch::after { content: ""; position: absolute; right: 2px; top: 2px; width: 16px; height: 16px; background: #FFF; border-radius: 50%; }
+        .mock-switch.off { background: #D9D9D9; }
+        .mock-switch.off::after { right: auto; left: 2px; }
+        .data-stat { display: inline-block; text-align: center; padding: 8px 16px; }
+        .data-stat .num { font-size: 24px; font-weight: bold; color: #1890FF; }
+        .data-stat .label { font-size: 11px; color: #999; margin-top: 2px; }
+    </style>
+</head>
+<body>
+
+<!-- ===== 顶部栏 ===== -->
+<div class="top-bar">
+    <span class="logo">Demo系统管理后台</span>
+    <span class="breadcrumb"><a href="#">CRM</a> / 业务标签管理</span>
+    <span class="meta">V1.0.0 &nbsp;|&nbsp; 2026-07-01 &nbsp;|&nbsp; 产品经理：Kooky</span>
+</div>
+
+<!-- ===== 左侧目录导航 ===== -->
+<div class="sidebar" id="sidebar">
+    <div class="sidebar-title">PRD 目录</div>
+
+    <div class="nav-group">
+        <div class="nav-group-title" onclick="toggleGroup(this)">
+            <span class="arrow open">&#9654;</span> V1.0.0 业务标签管理
+        </div>
+        <div class="nav-group-items">
+            <div class="nav-item active" onclick="switchPage('page-overview', this)">
+                <span class="dot"></span> 需求概述
+            </div>
+            <div class="nav-item" onclick="switchPage('page-tag-group', this)">
+                <span class="dot"></span> 标签组管理
+                <span class="badge">新</span>
+            </div>
+            <div class="nav-item" onclick="switchPage('page-tag-manage', this)">
+                <span class="dot"></span> 标签管理
+                <span class="badge">新</span>
+            </div>
+            <div class="nav-item" onclick="switchPage('page-lead-tagging', this)">
+                <span class="dot"></span> 线索池打标签
+                <span class="badge">新</span>
+            </div>
+            <div class="nav-item" onclick="switchPage('page-tag-search', this)">
+                <span class="dot"></span> 标签检索线索
+                <span class="badge">新</span>
+            </div>
+            <div class="nav-item" onclick="switchPage('page-tag-log', this)">
+                <span class="dot"></span> 标签操作日志
+                <span class="badge">新</span>
+            </div>
+            <div class="nav-item" onclick="switchPage('page-impact', this)">
+                <span class="dot"></span> 改动范围与权限
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="sidebar-toggle" id="sidebarToggle" onclick="toggleSidebar()" title="收起目录">&#9664;</div>
+
+<!-- ===== 主内容区 ===== -->
+<div class="main-area">
+
+    <!-- ========== 左侧：原型浏览区 ========== -->
+    <div class="proto-panel" id="protoPanel">
+
+        <!-- ===== 页面1：需求概述 ===== -->
+        <div class="page-section active" id="page-overview">
+            <div class="overview-card">
+                <h3>需求背景</h3>
+                <p>
+                    当前 CRM 系统中线索数据缺少灵活的标签分类体系，各业务线（业务线A、业务线B、业务线C、业务线D、业务线E）无法对线索进行精细化运营分类。
+                    业务侧反馈需要在后台系统中建立统一的标签管理机制，支持多级标签分类、标签颜色区分，并在线索池列表中便捷地为线索打标签，
+                    以提升线索筛选效率和精准营销能力。
+                </p>
+            </div>
+
+            <div class="overview-card">
+                <h3>功能全景</h3>
+                <p>本次迭代在 CRM 模块下新增"线索标签管理"菜单，包含以下核心功能：</p>
+                <p style="margin-top: 8px;">
+                    <strong>1. 标签组管理</strong> — 管理标签的顶层分组（如：标签组A、标签组B、标签组C），支持增删改查和排序。<br>
+                    <strong>2. 标签管理</strong> — 在标签组下管理一级标签和二级标签，支持颜色配置、启用/停用、关联产线、触发事件配置。<br>
+                    <strong>3. 线索池打标签</strong> — 在各业务线线索池列表中，支持单条/批量为线索添加或移除标签。<br>
+                    <strong>5. 标签检索线索</strong> — 跨产线全局检索，通过组合标签条件快速定位目标线索集合，含统计视图。<br>
+                    <strong>6. 标签操作日志</strong> — 全局记录所有标签操作历史（操作人、工号、操作类型、时间等），支持筛选和导出。<br>
+                    <strong>7. 标签统计</strong> — 记录标签使用次数、使用产线分布，辅助标签治理。
+                </p>
+            </div>
+
+            <div class="proto-card">
+                <div class="proto-card-title">系统菜单结构（新增部分）</div>
+                <div class="proto-card-body">
+                    <div style="font-size: 13px; line-height: 2.2; padding-left: 16px;">
+                        <div style="font-weight: bold; color: #333;">CRM</div>
+                        <div style="padding-left: 24px; color: #555;">线索管理</div>
+                        <div style="padding-left: 48px; color: #555;">业务线A线索池</div>
+                        <div style="padding-left: 48px; color: #555;">业务线B线索池</div>
+                        <div style="padding-left: 48px; color: #555;">业务线C线索池</div>
+                        <div style="padding-left: 48px; color: #555;">业务线D线索池</div>
+                        <div style="padding-left: 48px; color: #555;">业务线E线索池</div>
+                        <div style="padding-left: 24px;">
+                            <span class="highlight-box">
+                                <span style="color: #1890FF; font-weight: bold;">线索标签管理</span>
+                                <span class="annotation-marker">新增</span>
+                            </span>
+                        </div>
+                        <div style="padding-left: 48px; color: #1890FF;">标签组管理</div>
+                        <div style="padding-left: 48px; color: #1890FF;">标签管理</div>
+                        <div style="padding-left: 48px; color: #1890FF;">标签检索线索</div>
+                        <div style="padding-left: 48px; color: #1890FF;">标签操作日志</div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="proto-card">
+                <div class="proto-card-title">数据模型概览</div>
+                <div class="proto-card-body">
+                    <div class="flow-container">
+                        <div class="flow-node flow-node-active">标签组<br><span style="font-size: 10px; color: #999;">tag_group</span></div>
+                        <div class="flow-arrow">&#10140;</div>
+                        <div class="flow-node flow-node-active">一级标签<br><span style="font-size: 10px; color: #999;">tag (parent_id=0)</span></div>
+                        <div class="flow-arrow">&#10140;</div>
+                        <div class="flow-node flow-node-active">二级标签<br><span style="font-size: 10px; color: #999;">tag (parent_id=x)</span></div>
+                        <div class="flow-arrow">&#10140;</div>
+                        <div class="flow-node">线索-标签关联<br><span style="font-size: 10px; color: #999;">lead_tag_relation</span></div>
+                    </div>
+                    <div style="margin-top: 12px;">
+                        <table class="mock-table" style="width: auto;">
+                            <tr><th>实体</th><th>核心字段</th><th>说明</th></tr>
+                            <tr><td>tag_group</td><td>id, name, sort, status, created_at</td><td>标签组</td></tr>
+                            <tr><td>tag</td><td>id, group_id, parent_id, name, color, sort, status</td><td>一/二级标签</td></tr>
+                            <tr><td>tag_product_line</td><td>id, tag_id, product_line_id</td><td>标签-产线关联</td></tr>
+                            <tr><td>lead_tag_relation</td><td>id, lead_id, tag_id, operator_id, created_at</td><td>线索打标签记录</td></tr>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ===== 页面2：标签组管理 ===== -->
+        <div class="page-section" id="page-tag-group">
+            <div class="proto-card">
+                <div class="proto-card-title">标签组管理 — 列表页</div>
+                <div class="proto-card-body">
+                    <!-- 面包屑 -->
+                    <div style="font-size: 12px; color: #999; margin-bottom: 12px;">CRM / 线索标签管理 / 标签组管理</div>
+
+                    <!-- 工具栏 -->
+                    <div class="mock-toolbar">
+                        <span class="mock-btn mock-btn-primary">+ 新建标签组</span>
+                        <div class="mock-divider"></div>
+                        <span class="mock-input" style="width: 180px;">搜索标签组名称</span>
+                        <span class="mock-select">全部状态 ▾</span>
+                        <span class="mock-btn mock-btn-default">查询</span>
+                        <span class="mock-btn mock-btn-default">重置</span>
+                    </div>
+
+                    <!-- 数据表格 -->
+                    <table class="mock-table">
+                        <thead>
+                            <tr>
+                                <th style="width: 40px;"><span class="mock-checkbox"></span></th>
+                                <th style="width: 60px;">序号</th>
+                                <th>标签组名称</th>
+                                <th>标签组编码</th>
+                                <th style="width: 80px;">排序</th>
+                                <th style="width: 160px;">下辖标签数</th>
+                                <th style="width: 80px;">状态</th>
+                                <th style="width: 140px;">创建时间</th>
+                                <th style="width: 160px;">操作</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td><span class="mock-checkbox"></span></td>
+                                <td>1</td>
+                                <td><strong>标签组A</strong></td>
+                                <td>CUSTOMER_INTENT</td>
+                                <td>1</td>
+                                <td>
+                                    <span style="display: inline-block; background: #E6F7FF; color: #1890FF; padding: 2px 8px; border-radius: 3px; font-size: 11px; margin-right: 4px;">一级 <strong>5</strong></span>
+                                    <span style="display: inline-block; background: #F6FFED; color: #52C41A; padding: 2px 8px; border-radius: 3px; font-size: 11px;">二级 <strong>12</strong></span>
+                                </td>
+                                <td><span class="mock-tag mock-tag-green">启用</span></td>
+                                <td>2026-06-20 10:30</td>
+                                <td>
+                                    <a class="mock-link" href="#">编辑</a> &nbsp;
+                                    <a class="mock-link" href="#">查看标签</a> &nbsp;
+                                    <a class="mock-link" style="color: #FF4D4F;" href="#">停用</a>
+                                </td>
+                            </tr>
+                            <tr>
+                                <td><span class="mock-checkbox"></span></td>
+                                <td>2</td>
+                                <td><strong>标签组B</strong></td>
+                                <td>SOURCE_CHANNEL</td>
+                                <td>2</td>
+                                <td>
+                                    <span style="display: inline-block; background: #E6F7FF; color: #1890FF; padding: 2px 8px; border-radius: 3px; font-size: 11px; margin-right: 4px;">一级 <strong>4</strong></span>
+                                    <span style="display: inline-block; background: #F6FFED; color: #52C41A; padding: 2px 8px; border-radius: 3px; font-size: 11px;">二级 <strong>8</strong></span>
+                                </td>
+                                <td><span class="mock-tag mock-tag-green">启用</span></td>
+                                <td>2026-06-20 10:35</td>
+                                <td>
+                                    <a class="mock-link" href="#">编辑</a> &nbsp;
+                                    <a class="mock-link" href="#">查看标签</a> &nbsp;
+                                    <a class="mock-link" style="color: #FF4D4F;" href="#">停用</a>
+                                </td>
+                            </tr>
+                            <tr>
+                                <td><span class="mock-checkbox"></span></td>
+                                <td>3</td>
+                                <td><strong>标签组C</strong></td>
+                                <td>CUSTOMER_ATTR</td>
+                                <td>3</td>
+                                <td>
+                                    <span style="display: inline-block; background: #E6F7FF; color: #1890FF; padding: 2px 8px; border-radius: 3px; font-size: 11px; margin-right: 4px;">一级 <strong>3</strong></span>
+                                    <span style="display: inline-block; background: #F6FFED; color: #52C41A; padding: 2px 8px; border-radius: 3px; font-size: 11px;">二级 <strong>6</strong></span>
+                                </td>
+                                <td><span class="mock-tag mock-tag-green">启用</span></td>
+                                <td>2026-06-21 09:00</td>
+                                <td>
+                                    <a class="mock-link" href="#">编辑</a> &nbsp;
+                                    <a class="mock-link" href="#">查看标签</a> &nbsp;
+                                    <a class="mock-link" style="color: #FF4D4F;" href="#">停用</a>
+                                </td>
+                            </tr>
+                            <tr style="background: #FAFAFA;">
+                                <td><span class="mock-checkbox"></span></td>
+                                <td>4</td>
+                                <td><strong style="color: #999;">标签组D（已停用）</strong></td>
+                                <td style="color: #999;">FOLLOW_STATUS</td>
+                                <td>4</td>
+                                <td style="color: #999;">
+                                    <span style="display: inline-block; background: #F5F5F5; color: #999; padding: 2px 8px; border-radius: 3px; font-size: 11px; margin-right: 4px;">一级 <strong>2</strong></span>
+                                    <span style="display: inline-block; background: #F5F5F5; color: #999; padding: 2px 8px; border-radius: 3px; font-size: 11px;">二级 <strong>3</strong></span>
+                                </td>
+                                <td><span class="mock-tag mock-tag-orange">已停用</span></td>
+                                <td style="color: #999;">2026-05-10 14:00</td>
+                                <td>
+                                    <a class="mock-link" href="#">编辑</a> &nbsp;
+                                    <a class="mock-link" href="#">查看标签</a> &nbsp;
+                                    <a class="mock-link" style="color: #52C41A;" href="#">启用</a>
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+
+                    <!-- 分页 -->
+                    <div class="mock-pagination">
+                        共 4 条 &nbsp;
+                        <span class="mock-page-btn">&lt;</span>
+                        <span class="mock-page-btn mock-page-active">1</span>
+                        <span class="mock-page-btn">&gt;</span>
+                        &nbsp; 10条/页
+                    </div>
+                </div>
+            </div>
+
+            <!-- 弹窗：新建/编辑标签组 -->
+            <div class="proto-card">
+                <div class="proto-card-title">弹窗 — 新建/编辑标签组</div>
+                <div class="proto-card-body">
+                    <div class="mock-modal" style="max-width: 520px;">
+                        <div class="mock-modal-header">
+                            <strong>新建标签组</strong>
+                            <span style="color: #999; cursor: default;">&#10005;</span>
+                        </div>
+                        <div class="mock-modal-body">
+                            <div class="form-row">
+                                <div class="form-label"><span class="req">*</span> 标签组名称</div>
+                                <div class="mock-input" style="flex: 1; color: #BFBFBF;">请输入标签组名称（≤20字）</div>
+                            </div>
+                            <div class="form-row">
+                                <div class="form-label"><span class="req">*</span> 标签组编码</div>
+                                <div class="mock-input" style="flex: 1; color: #BFBFBF;">请输入英文编码（如 CUSTOMER_INTENT）</div>
+                            </div>
+                            <div class="form-row">
+                                <div class="form-label">排序</div>
+                                <div class="mock-input" style="flex: 1; color: #BFBFBF;">数值越小越靠前</div>
+                            </div>
+                            <div class="form-row">
+                                <div class="form-label">备注</div>
+                                <div class="mock-input" style="flex: 1; color: #BFBFBF; height: 60px;">请输入备注说明</div>
+                            </div>
+                        </div>
+                        <div class="mock-modal-footer">
+                            <span class="mock-btn mock-btn-default">取消</span>
+                            &nbsp;
+                            <span class="mock-btn mock-btn-primary">确定</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ===== 页面3：标签管理 ===== -->
+        <div class="page-section" id="page-tag-manage">
+            <div class="proto-card">
+                <div class="proto-card-title">标签管理 — 左侧标签组树 + 右侧标签列表</div>
+                <div class="proto-card-body">
+                    <div style="font-size: 12px; color: #999; margin-bottom: 12px;">CRM / 线索标签管理 / 标签管理</div>
+
+                    <div class="proto-split-layout">
+                        <!-- 左侧标签组树 -->
+                        <div class="proto-left-tree">
+                            <div style="font-size: 13px; font-weight: bold; color: #333; margin-bottom: 10px;">标签组</div>
+                            <div class="mock-input" style="width: 100%; margin-bottom: 10px;">搜索标签组</div>
+
+                            <div style="font-size: 12px;">
+                                <div style="padding: 4px 0; color: #1890FF; font-weight: bold; background: #E6F7FF; padding-left: 6px; border-radius: 3px;">
+                                    <span class="tree-expand">-</span> 标签组A <span class="mock-badge-count">17</span>
+                                </div>
+                                <div class="tree-node">
+                                    <div class="tree-item">一级标签A <span class="mock-badge-count">5</span></div>
+                                    <div class="tree-item">一级标签B <span class="mock-badge-count">4</span></div>
+                                    <div class="tree-item">一级标签C <span class="mock-badge-count">3</span></div>
+                                    <div class="tree-item">一级标签D <span class="mock-badge-count">3</span></div>
+                                    <div class="tree-item">一级标签E <span class="mock-badge-count">2</span></div>
+                                </div>
+
+                                <div style="padding: 4px 0; color: #333; padding-left: 6px;">
+                                    <span class="tree-expand">+</span> 标签组B <span class="mock-badge-count">12</span>
+                                </div>
+                                <div style="padding: 4px 0; color: #333; padding-left: 6px;">
+                                    <span class="tree-expand">+</span> 标签组C <span class="mock-badge-count">9</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- 右侧标签列表 -->
+                        <div class="proto-right-content">
+                            <div class="mock-tabs">
+                                <div class="mock-tab active">一级标签</div>
+                                <div class="mock-tab">二级标签</div>
+                            </div>
+
+                            <div class="mock-toolbar">
+                                <span class="mock-btn mock-btn-primary">+ 新建一级标签</span>
+                                <div class="mock-divider"></div>
+                                <span class="mock-input" style="width: 160px;">搜索标签名称</span>
+                                <span class="mock-select">全部产线 ▾</span>
+                                <span class="mock-select">全部状态 ▾</span>
+                                <span class="mock-btn mock-btn-default">查询</span>
+                            </div>
+
+                            <table class="mock-table">
+                                <thead>
+                                    <tr>
+                                        <th style="width: 40px;"><span class="mock-checkbox"></span></th>
+                                        <th>标签名称</th>
+                                        <th style="width: 80px;">标签颜色</th>
+                                        <th>所属标签组</th>
+                                        <th>使用产线</th>
+                                        <th style="width: 80px;">使用次数</th>
+                                        <th style="width: 60px;">排序</th>
+                                        <th style="width: 70px;">状态</th>
+                                        <th style="width: 140px;">操作</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <tr>
+                                        <td><span class="mock-checkbox"></span></td>
+                                        <td><strong>一级标签A</strong></td>
+                                        <td><span class="color-dot" style="background: #F5222D;"></span></td>
+                                        <td>标签组A</td>
+                                        <td>
+                                            <span class="mock-tag mock-tag-blue">业务线A</span>
+                                            <span class="mock-tag mock-tag-green">业务线B</span>
+                                            <span class="mock-tag mock-tag-orange">业务线C</span>
+                                            <span class="mock-tag mock-tag-purple">业务线D</span>
+                                            <span class="mock-tag mock-tag-cyan">业务线E</span>
+                                        </td>
+                                        <td><strong style="color: #1890FF;">1,234</strong></td>
+                                        <td>1</td>
+                                        <td><span class="mock-tag mock-tag-green">启用</span></td>
+                                        <td>
+                                            <a class="mock-link" href="#">编辑</a> &nbsp;
+                                            <a class="mock-link" href="#">二级标签(5)</a> &nbsp;
+                                            <a class="mock-link" style="color: #FF4D4F;" href="#">停用</a>
+                                        </td>
+                                    </tr>
+                                    <tr>
+                                        <td><span class="mock-checkbox"></span></td>
+                                        <td><strong>一级标签B</strong></td>
+                                        <td><span class="color-dot" style="background: #FA8C16;"></span></td>
+                                        <td>标签组A</td>
+                                        <td>
+                                            <span class="mock-tag mock-tag-blue">业务线A</span>
+                                            <span class="mock-tag mock-tag-green">业务线B</span>
+                                            <span class="mock-tag mock-tag-orange">业务线C</span>
+                                        </td>
+                                        <td><strong style="color: #1890FF;">856</strong></td>
+                                        <td>2</td>
+                                        <td><span class="mock-tag mock-tag-green">启用</span></td>
+                                        <td>
+                                            <a class="mock-link" href="#">编辑</a> &nbsp;
+                                            <a class="mock-link" href="#">二级标签(4)</a> &nbsp;
+                                            <a class="mock-link" style="color: #FF4D4F;" href="#">停用</a>
+                                        </td>
+                                    </tr>
+                                    <tr>
+                                        <td><span class="mock-checkbox"></span></td>
+                                        <td><strong>一级标签C</strong></td>
+                                        <td><span class="color-dot" style="background: #1890FF;"></span></td>
+                                        <td>标签组A</td>
+                                        <td>
+                                            <span class="mock-tag mock-tag-blue">业务线A</span>
+                                            <span class="mock-tag mock-tag-orange">业务线C</span>
+                                        </td>
+                                        <td><strong style="color: #1890FF;">423</strong></td>
+                                        <td>3</td>
+                                        <td><span class="mock-tag mock-tag-green">启用</span></td>
+                                        <td>
+                                            <a class="mock-link" href="#">编辑</a> &nbsp;
+                                            <a class="mock-link" href="#">二级标签(3)</a> &nbsp;
+                                            <a class="mock-link" style="color: #FF4D4F;" href="#">停用</a>
+                                        </td>
+                                    </tr>
+                                    <tr>
+                                        <td><span class="mock-checkbox"></span></td>
+                                        <td><strong>一级标签D</strong></td>
+                                        <td><span class="color-dot" style="background: #722ED1;"></span></td>
+                                        <td>标签组A</td>
+                                        <td>
+                                            <span class="mock-tag mock-tag-blue">业务线A</span>
+                                            <span class="mock-tag mock-tag-green">业务线B</span>
+                                            <span class="mock-tag mock-tag-orange">业务线C</span>
+                                            <span class="mock-tag mock-tag-purple">业务线D</span>
+                                            <span class="mock-tag mock-tag-cyan">业务线E</span>
+                                        </td>
+                                        <td><strong style="color: #1890FF;">312</strong></td>
+                                        <td>4</td>
+                                        <td><span class="mock-tag mock-tag-green">启用</span></td>
+                                        <td>
+                                            <a class="mock-link" href="#">编辑</a> &nbsp;
+                                            <a class="mock-link" href="#">二级标签(3)</a> &nbsp;
+                                            <a class="mock-link" style="color: #FF4D4F;" href="#">停用</a>
+                                        </td>
+                                    </tr>
+                                    <tr>
+                                        <td><span class="mock-checkbox"></span></td>
+                                        <td><strong>一级标签E</strong></td>
+                                        <td><span class="color-dot" style="background: #999;"></span></td>
+                                        <td>标签组A</td>
+                                        <td>
+                                            <span class="mock-tag mock-tag-blue">业务线A</span>
+                                            <span class="mock-tag mock-tag-orange">业务线C</span>
+                                        </td>
+                                        <td><strong style="color: #1890FF;">89</strong></td>
+                                        <td>5</td>
+                                        <td><span class="mock-tag mock-tag-green">启用</span></td>
+                                        <td>
+                                            <a class="mock-link" href="#">编辑</a> &nbsp;
+                                            <a class="mock-link" href="#">二级标签(2)</a> &nbsp;
+                                            <a class="mock-link" style="color: #FF4D4F;" href="#">停用</a>
+                                        </td>
+                                    </tr>
+                                </tbody>
+                            </table>
+
+                            <div class="mock-pagination">
+                                共 5 条 &nbsp;
+                                <span class="mock-page-btn">&lt;</span>
+                                <span class="mock-page-btn mock-page-active">1</span>
+                                <span class="mock-page-btn">&gt;</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 弹窗：新建/编辑标签 -->
+            <div class="proto-card">
+                <div class="proto-card-title">弹窗 — 新建/编辑标签</div>
+                <div class="proto-card-body" style="display: flex; gap: 24px; flex-wrap: wrap;">
+                    <!-- 新建一级标签弹窗 -->
+                    <div class="mock-modal" style="max-width: 520px;">
+                        <div class="mock-modal-header">
+                            <strong>新建一级标签</strong>
+                            <span style="color: #999;">&#10005;</span>
+                        </div>
+                        <div class="mock-modal-body">
+                            <div class="form-row">
+                                <div class="form-label"><span class="req">*</span> 标签组</div>
+                                <div class="mock-select" style="flex: 1;">标签组A ▾</div>
+                            </div>
+                            <div class="form-row">
+                                <div class="form-label"><span class="req">*</span> 标签名称</div>
+                                <div class="mock-input" style="flex: 1;">请输入标签名称（≤15字）</div>
+                            </div>
+                            <div class="form-row">
+                                <div class="form-label"><span class="req">*</span> 标签颜色</div>
+                                <div style="flex: 1; display: flex; gap: 6px; align-items: center;">
+                                    <span class="color-dot" style="background: #F5222D; width: 22px; height: 22px; border: 2px solid #1890FF;"></span>
+                                    <span class="color-dot" style="background: #FA8C16; width: 22px; height: 22px;"></span>
+                                    <span class="color-dot" style="background: #FAAD14; width: 22px; height: 22px;"></span>
+                                    <span class="color-dot" style="background: #52C41A; width: 22px; height: 22px;"></span>
+                                    <span class="color-dot" style="background: #1890FF; width: 22px; height: 22px;"></span>
+                                    <span class="color-dot" style="background: #722ED1; width: 22px; height: 22px;"></span>
+                                    <span class="color-dot" style="background: #13C2C2; width: 22px; height: 22px;"></span>
+                                    <span class="color-dot" style="background: #999; width: 22px; height: 22px;"></span>
+                                </div>
+                            </div>
+                            <div class="form-row">
+                                <div class="form-label"><span class="req">*</span> 使用产线</div>
+                                <div style="flex: 1; display: flex; gap: 6px; flex-wrap: wrap; align-items: center; font-size: 12px;">
+                                    <span class="mock-checkbox checked"></span> 业务线A
+                                    &nbsp;
+                                    <span class="mock-checkbox checked"></span> 业务线B
+                                    &nbsp;
+                                    <span class="mock-checkbox checked"></span> 业务线C
+                                    &nbsp;
+                                    <span class="mock-checkbox"></span> 业务线D
+                                    &nbsp;
+                                    <span class="mock-checkbox"></span> 业务线E
+                                </div>
+                            </div>
+                            <div class="form-row">
+                                <div class="form-label">排序</div>
+                                <div class="mock-input" style="flex: 1;">数值越小越靠前</div>
+                            </div>
+                        </div>
+                        <div class="mock-modal-footer">
+                            <span class="mock-btn mock-btn-default">取消</span>
+                            &nbsp;
+                            <span class="mock-btn mock-btn-primary">确定</span>
+                        </div>
+                    </div>
+
+                    <!-- 新建二级标签弹窗 -->
+                    <div class="mock-modal" style="max-width: 520px;">
+                        <div class="mock-modal-header">
+                            <strong>新建二级标签</strong>
+                            <span style="color: #999;">&#10005;</span>
+                        </div>
+                        <div class="mock-modal-body">
+                            <div class="form-row">
+                                <div class="form-label"><span class="req">*</span> 所属一级标签</div>
+                                <div class="mock-select" style="flex: 1;">一级标签A ▾</div>
+                            </div>
+                            <div class="form-row">
+                                <div class="form-label"><span class="req">*</span> 标签名称</div>
+                                <div class="mock-input" style="flex: 1;">请输入标签名称（≤15字）</div>
+                            </div>
+                            <div class="form-row">
+                                <div class="form-label">标签颜色</div>
+                                <div style="flex: 1; font-size: 12px; color: #999;">
+                                    <span class="color-dot" style="background: #F5222D;"></span>
+                                    继承一级标签颜色
+                                </div>
+                            </div>
+                            <div class="form-row">
+                                <div class="form-label">使用产线</div>
+                                <div style="flex: 1; font-size: 12px; color: #999;">
+                                    继承一级标签产线配置，可缩减范围
+                                </div>
+                            </div>
+                            <div class="form-row">
+                                <div class="form-label">&nbsp;</div>
+                                <div style="flex: 1; display: flex; gap: 6px; flex-wrap: wrap; align-items: center; font-size: 12px;">
+                                    <span class="mock-checkbox checked"></span> 业务线A
+                                    &nbsp;
+                                    <span class="mock-checkbox checked"></span> 业务线B
+                                    &nbsp;
+                                    <span class="mock-checkbox"></span> 业务线C
+                                    &nbsp;
+                                    <span class="mock-checkbox"></span> 业务线D
+                                    &nbsp;
+                                    <span class="mock-checkbox"></span> 业务线E
+                                </div>
+                            </div>
+                            <div class="form-row">
+                                <div class="form-label">排序</div>
+                                <div class="mock-input" style="flex: 1;">数值越小越靠前</div>
+                            </div>
+                        </div>
+                        <div class="mock-modal-footer">
+                            <span class="mock-btn mock-btn-default">取消</span>
+                            &nbsp;
+                            <span class="mock-btn mock-btn-primary">确定</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 二级标签列表 -->
+            <div class="proto-card">
+                <div class="proto-card-title">标签管理 — 二级标签列表（点击"二级标签"Tab后）</div>
+                <div class="proto-card-body">
+                    <div class="mock-toolbar">
+                        <span class="mock-btn mock-btn-primary">+ 新建二级标签</span>
+                        <div class="mock-divider"></div>
+                        <span style="font-size: 12px; color: #999;">当前一级标签：</span>
+                        <span class="mock-select">一级标签A ▾</span>
+                        <span class="mock-input" style="width: 160px;">搜索标签名称</span>
+                        <span class="mock-btn mock-btn-default">查询</span>
+                    </div>
+
+                    <table class="mock-table">
+                        <thead>
+                            <tr>
+                                <th style="width: 40px;"><span class="mock-checkbox"></span></th>
+                                <th>标签名称</th>
+                                <th style="width: 80px;">标签颜色</th>
+                                <th>所属一级标签</th>
+                                <th>使用产线</th>
+                                <th style="width: 80px;">使用次数</th>
+                                <th style="width: 60px;">排序</th>
+                                <th style="width: 70px;">状态</th>
+                                <th style="width: 120px;">操作</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td><span class="mock-checkbox"></span></td>
+                                <td>急需下单</td>
+                                <td><span class="color-dot" style="background: #F5222D;"></span></td>
+                                <td>一级标签A</td>
+                                <td><span class="mock-tag mock-tag-blue">业务线A</span><span class="mock-tag mock-tag-green">业务线B</span></td>
+                                <td><strong>321</strong></td>
+                                <td>1</td>
+                                <td><span class="mock-tag mock-tag-green">启用</span></td>
+                                <td><a class="mock-link" href="#">编辑</a> &nbsp; <a class="mock-link" style="color: #FF4D4F;" href="#">停用</a></td>
+                            </tr>
+                            <tr>
+                                <td><span class="mock-checkbox"></span></td>
+                                <td>价格敏感</td>
+                                <td><span class="color-dot" style="background: #F5222D;"></span></td>
+                                <td>一级标签A</td>
+                                <td><span class="mock-tag mock-tag-orange">业务线C</span><span class="mock-tag mock-tag-purple">业务线D</span></td>
+                                <td><strong>198</strong></td>
+                                <td>2</td>
+                                <td><span class="mock-tag mock-tag-green">启用</span></td>
+                                <td><a class="mock-link" href="#">编辑</a> &nbsp; <a class="mock-link" style="color: #FF4D4F;" href="#">停用</a></td>
+                            </tr>
+                            <tr>
+                                <td><span class="mock-checkbox"></span></td>
+                                <td>品牌认可</td>
+                                <td><span class="color-dot" style="background: #F5222D;"></span></td>
+                                <td>一级标签A</td>
+                                <td><span class="mock-tag mock-tag-blue">业务线A</span></td>
+                                <td><strong>156</strong></td>
+                                <td>3</td>
+                                <td><span class="mock-tag mock-tag-green">启用</span></td>
+                                <td><a class="mock-link" href="#">编辑</a> &nbsp; <a class="mock-link" style="color: #FF4D4F;" href="#">停用</a></td>
+                            </tr>
+                        </tbody>
+                    </table>
+                    <div class="mock-pagination">
+                        共 5 条 &nbsp;
+                        <span class="mock-page-btn">&lt;</span>
+                        <span class="mock-page-btn mock-page-active">1</span>
+                        <span class="mock-page-btn">&gt;</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ===== 页面4：线索池打标签 ===== -->
+        <div class="page-section" id="page-lead-tagging">
+            <!-- 线索池列表原型 -->
+            <div class="proto-card">
+                <div class="proto-card-title">线索池列表 — 标签列 & 打标签操作（以业务线A线索池为例）</div>
+                <div class="proto-card-body">
+                    <div style="font-size: 12px; color: #999; margin-bottom: 12px;">CRM / 线索管理 / 业务线A线索池</div>
+
+                    <!-- 筛选栏 -->
+                    <div class="mock-toolbar">
+                        <span class="mock-input" style="width: 120px;">客户姓名/手机号</span>
+                        <span class="mock-select">线索来源 ▾</span>
+                        <div class="highlight-box">
+                            <span class="mock-select" style="min-width: 120px;">
+                                标签筛选 ▾
+                                <span class="annotation-marker">新增</span>
+                            </span>
+                        </div>
+                        <span class="mock-btn mock-btn-default">查询</span>
+                        <span class="mock-btn mock-btn-default">重置</span>
+                        <div style="margin-left: auto;">
+                            <span class="mock-btn mock-btn-default">导出</span>
+                        </div>
+                    </div>
+
+                    <!-- 批量操作栏 -->
+                    <div class="mock-toolbar" style="background: #E6F7FF; border-color: #91D5FF;">
+                        <span style="font-size: 12px; color: #1890FF;">已选择 <strong>3</strong> 条</span>
+                        <div class="mock-divider"></div>
+                        <div class="highlight-box">
+                            <span class="mock-btn mock-btn-primary">批量打标签</span>
+                            <span class="annotation-marker">新增</span>
+                        </div>
+                        <div class="highlight-box">
+                            <span class="mock-btn mock-btn-default">批量移除标签</span>
+                            <span class="annotation-marker">新增</span>
+                        </div>
+                    </div>
+
+                    <!-- 线索列表（无分配状态列） -->
+                    <table class="mock-table">
+                        <thead>
+                            <tr>
+                                <th style="width: 40px;"><span class="mock-checkbox checked"></span></th>
+                                <th>客户姓名</th>
+                                <th>手机号</th>
+                                <th>线索来源</th>
+                                <th>
+                                    <span class="highlight-box" style="padding: 1px 3px;">
+                                        标签
+                                        <span class="annotation-marker">新增列</span>
+                                    </span>
+                                </th>
+                                <th>创建时间</th>
+                                <th style="width: 180px;">操作</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr class="selected">
+                                <td><span class="mock-checkbox checked"></span></td>
+                                <td>张**</td>
+                                <td>138****5678</td>
+                                <td>抖音广告</td>
+                                <td>
+                                    <span class="mock-tag mock-tag-red">一级标签A</span>
+                                    <span class="mock-tag mock-tag-blue">急需下单</span>
+                                    <span class="mock-tag mock-tag-orange">价格敏感</span>
+                                    <div style="margin-top: 2px; display: inline-block;">
+                                        <a class="mock-link" href="#" style="font-size: 11px;">+ 添加标签</a>
+                                    </div>
+                                </td>
+                                <td>2026-06-28</td>
+                                <td>
+                                    <a class="mock-link" href="#">详情</a> &nbsp;
+                                    <a class="mock-link" href="#">跟进</a> &nbsp;
+                                    <a class="mock-link" href="#">分配</a>
+                                </td>
+                            </tr>
+                            <tr class="selected">
+                                <td><span class="mock-checkbox checked"></span></td>
+                                <td>李**</td>
+                                <td>159****1234</td>
+                                <td>小红书</td>
+                                <td>
+                                    <span class="mock-tag mock-tag-orange">一级标签B</span>
+                                    <span class="mock-tag mock-tag-purple">品牌认可</span>
+                                    <div style="margin-top: 2px; display: inline-block;">
+                                        <a class="mock-link" href="#" style="font-size: 11px;">+ 添加标签</a>
+                                    </div>
+                                </td>
+                                <td>2026-06-29</td>
+                                <td>
+                                    <a class="mock-link" href="#">详情</a> &nbsp;
+                                    <a class="mock-link" href="#">跟进</a> &nbsp;
+                                    <a class="mock-link" href="#">分配</a>
+                                </td>
+                            </tr>
+                            <tr class="selected">
+                                <td><span class="mock-checkbox checked"></span></td>
+                                <td>王**</td>
+                                <td>186****9012</td>
+                                <td>自然搜索</td>
+                                <td>
+                                    <span class="mock-tag mock-tag-blue">一级标签D</span>
+                                    <div style="margin-top: 2px; display: inline-block;">
+                                        <a class="mock-link" href="#" style="font-size: 11px;">+ 添加标签</a>
+                                    </div>
+                                </td>
+                                <td>2026-06-30</td>
+                                <td>
+                                    <a class="mock-link" href="#">详情</a> &nbsp;
+                                    <a class="mock-link" href="#">跟进</a> &nbsp;
+                                    <a class="mock-link" href="#">分配</a>
+                                </td>
+                            </tr>
+                            <tr>
+                                <td><span class="mock-checkbox"></span></td>
+                                <td>赵**</td>
+                                <td>133****4567</td>
+                                <td>朋友推荐</td>
+                                <td>
+                                    <div style="display: inline-block;">
+                                        <a class="mock-link" href="#" style="font-size: 11px;">+ 添加标签</a>
+                                    </div>
+                                </td>
+                                <td>2026-06-30</td>
+                                <td>
+                                    <a class="mock-link" href="#">详情</a> &nbsp;
+                                    <a class="mock-link" href="#">跟进</a> &nbsp;
+                                    <a class="mock-link" href="#">分配</a>
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                    <div class="mock-pagination">
+                        共 1,234 条 &nbsp;
+                        <span class="mock-page-btn">&lt;</span>
+                        <span class="mock-page-btn mock-page-active">1</span>
+                        <span class="mock-page-btn">2</span>
+                        <span class="mock-page-btn">3</span>
+                        <span class="mock-page-btn">...</span>
+                        <span class="mock-page-btn">124</span>
+                        <span class="mock-page-btn">&gt;</span>
+                        &nbsp; 10条/页
+                    </div>
+                </div>
+            </div>
+
+            <!-- 弹窗：单条打标签 -->
+            <div class="proto-card">
+                <div class="proto-card-title">弹窗 — 单条打标签（线索池列表点击"+ 添加标签"或"打标签"）</div>
+                <div class="proto-card-body">
+                    <div class="mock-modal" style="max-width: 560px;">
+                        <div class="mock-modal-header">
+                            <strong>打标签</strong>
+                            <span style="color: #999;">&#10005;</span>
+                        </div>
+                        <div class="mock-modal-body">
+                            <div style="font-size: 12px; color: #666; margin-bottom: 4px;">
+                                当前线索已有标签：
+                            </div>
+                            <div style="display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 12px; padding: 8px; background: #FAFAFA; border: 1px solid #E8E8E8; border-radius: 4px;">
+                                <span class="highlight-box" style="border-color: #FF4D4F;">
+                                    <span style="display: inline-flex; align-items: center; gap: 3px; padding: 2px 8px; background: #FFF1F0; border: 1px solid #FFA39E; border-radius: 3px; font-size: 11px; color: #F5222D;">
+                                        一级标签A <span style="color: #999; cursor: default; margin-left: 2px;">&#10005;</span>
+                                    </span>
+                                    <span class="annotation-marker">点击 &#10005; 移除</span>
+                                </span>
+                                <span style="display: inline-flex; align-items: center; gap: 3px; padding: 2px 8px; background: #E6F7FF; border: 1px solid #91D5FF; border-radius: 3px; font-size: 11px; color: #1890FF;">
+                                    急需下单 <span style="color: #999; cursor: default; margin-left: 2px;">&#10005;</span>
+                                </span>
+                                <span style="display: inline-flex; align-items: center; gap: 3px; padding: 2px 8px; background: #FFF7E6; border: 1px solid #FFD591; border-radius: 3px; font-size: 11px; color: #FA8C16;">
+                                    价格敏感 <span style="color: #999; cursor: default; margin-left: 2px;">&#10005;</span>
+                                </span>
+                            </div>
+
+                            <div class="form-row">
+                                <div class="form-label">标签组</div>
+                                <div class="mock-select" style="flex: 1;">全部标签组 ▾</div>
+                            </div>
+
+                            <div style="margin-top: 12px;">
+                                <div style="font-size: 12px; font-weight: bold; color: #333; margin-bottom: 8px;">标签组A</div>
+                                <div style="display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 12px;">
+                                    <span style="display: inline-flex; align-items: center; gap: 4px; padding: 4px 10px; border: 1px solid #F5222D; background: #FFF1F0; border-radius: 3px; font-size: 12px; color: #F5222D; cursor: default;">
+                                        <span class="mock-checkbox checked" style="border-color: #F5222D; background: #F5222D;"></span> 一级标签A
+                                    </span>
+                                    <span style="display: inline-flex; align-items: center; gap: 4px; padding: 4px 10px; border: 1px solid #D9D9D9; border-radius: 3px; font-size: 12px; color: #333; cursor: default;">
+                                        <span class="mock-checkbox"></span> 一级标签B
+                                    </span>
+                                    <span style="display: inline-flex; align-items: center; gap: 4px; padding: 4px 10px; border: 1px solid #D9D9D9; border-radius: 3px; font-size: 12px; color: #333; cursor: default;">
+                                        <span class="mock-checkbox"></span> 一级标签C
+                                    </span>
+                                    <span style="display: inline-flex; align-items: center; gap: 4px; padding: 4px 10px; border: 1px solid #D9D9D9; border-radius: 3px; font-size: 12px; color: #333; cursor: default;">
+                                        <span class="mock-checkbox"></span> 一级标签D
+                                    </span>
+                                    <span style="display: inline-flex; align-items: center; gap: 4px; padding: 4px 10px; border: 1px solid #D9D9D9; border-radius: 3px; font-size: 12px; color: #333; cursor: default;">
+                                        <span class="mock-checkbox"></span> 一级标签E
+                                    </span>
+                                </div>
+
+                                <div style="font-size: 12px; font-weight: bold; color: #333; margin-bottom: 8px;">标签组B</div>
+                                <div style="display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 12px;">
+                                    <span style="display: inline-flex; align-items: center; gap: 4px; padding: 4px 10px; border: 1px solid #1890FF; background: #E6F7FF; border-radius: 3px; font-size: 12px; color: #1890FF; cursor: default;">
+                                        <span class="mock-checkbox checked" style="border-color: #1890FF; background: #1890FF;"></span> 抖音广告
+                                    </span>
+                                    <span style="display: inline-flex; align-items: center; gap: 4px; padding: 4px 10px; border: 1px solid #D9D9D9; border-radius: 3px; font-size: 12px; color: #333; cursor: default;">
+                                        <span class="mock-checkbox"></span> 小红书
+                                    </span>
+                                    <span style="display: inline-flex; align-items: center; gap: 4px; padding: 4px 10px; border: 1px solid #D9D9D9; border-radius: 3px; font-size: 12px; color: #333; cursor: default;">
+                                        <span class="mock-checkbox"></span> 自然搜索
+                                    </span>
+                                    <span style="display: inline-flex; align-items: center; gap: 4px; padding: 4px 10px; border: 1px solid #D9D9D9; border-radius: 3px; font-size: 12px; color: #333; cursor: default;">
+                                        <span class="mock-checkbox"></span> 朋友推荐
+                                    </span>
+                                </div>
+
+                                <div style="font-size: 12px; font-weight: bold; color: #333; margin-bottom: 8px;">标签组C</div>
+                                <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+                                    <span style="display: inline-flex; align-items: center; gap: 4px; padding: 4px 10px; border: 1px solid #D9D9D9; border-radius: 3px; font-size: 12px; color: #333; cursor: default;">
+                                        <span class="mock-checkbox"></span> 新客户
+                                    </span>
+                                    <span style="display: inline-flex; align-items: center; gap: 4px; padding: 4px 10px; border: 1px solid #D9D9D9; border-radius: 3px; font-size: 12px; color: #333; cursor: default;">
+                                        <span class="mock-checkbox"></span> 老客户复购
+                                    </span>
+                                    <span style="display: inline-flex; align-items: center; gap: 4px; padding: 4px 10px; border: 1px solid #D9D9D9; border-radius: 3px; font-size: 12px; color: #333; cursor: default;">
+                                        <span class="mock-checkbox"></span> VIP客户
+                                    </span>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="mock-modal-footer">
+                            <span class="mock-btn mock-btn-default">取消</span>
+                            &nbsp;
+                            <span class="mock-btn mock-btn-primary">确定</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 弹窗：批量打标签 -->
+            <div class="proto-card">
+                <div class="proto-card-title">弹窗 — 批量打标签 <span class="annotation-marker">新增</span></div>
+                <div class="proto-card-body" style="display: flex; gap: 24px; flex-wrap: wrap;">
+                    <div class="mock-modal" style="max-width: 520px;">
+                        <div class="mock-modal-header">
+                            <strong>批量打标签</strong>
+                            <span style="color: #999;">&#10005;</span>
+                        </div>
+                        <div class="mock-modal-body">
+                            <div style="padding: 8px 12px; background: #E6F7FF; border: 1px solid #91D5FF; border-radius: 4px; margin-bottom: 12px; font-size: 12px; color: #1890FF;">
+                                已选择 <strong>3</strong> 条线索，选中的标签将<span class="c-key" style="color: #9B0000;">追加</span>到每条线索的已有标签上
+                            </div>
+
+                            <div style="font-size: 12px; font-weight: bold; color: #333; margin-bottom: 8px;">标签组A</div>
+                            <div style="display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 12px;">
+                                <span style="display: inline-flex; align-items: center; gap: 4px; padding: 4px 10px; border: 1px solid #F5222D; background: #FFF1F0; border-radius: 3px; font-size: 12px; color: #F5222D; cursor: default;">
+                                    <span class="mock-checkbox checked" style="border-color: #F5222D; background: #F5222D;"></span> 一级标签A
+                                </span>
+                                <span style="display: inline-flex; align-items: center; gap: 4px; padding: 4px 10px; border: 1px solid #D9D9D9; border-radius: 3px; font-size: 12px; color: #333; cursor: default;">
+                                    <span class="mock-checkbox"></span> 一级标签B
+                                </span>
+                                <span style="display: inline-flex; align-items: center; gap: 4px; padding: 4px 10px; border: 1px solid #D9D9D9; border-radius: 3px; font-size: 12px; color: #333; cursor: default;">
+                                    <span class="mock-checkbox"></span> 一级标签C
+                                </span>
+                                <span style="display: inline-flex; align-items: center; gap: 4px; padding: 4px 10px; border: 1px solid #D9D9D9; border-radius: 3px; font-size: 12px; color: #333; cursor: default;">
+                                    <span class="mock-checkbox"></span> 一级标签D
+                                </span>
+                                <span style="display: inline-flex; align-items: center; gap: 4px; padding: 4px 10px; border: 1px solid #D9D9D9; border-radius: 3px; font-size: 12px; color: #333; cursor: default;">
+                                    <span class="mock-checkbox"></span> 一级标签E
+                                </span>
+                            </div>
+
+                            <div style="font-size: 12px; font-weight: bold; color: #333; margin-bottom: 8px;">标签组B</div>
+                            <div style="display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 12px;">
+                                <span style="display: inline-flex; align-items: center; gap: 4px; padding: 4px 10px; border: 1px solid #1890FF; background: #E6F7FF; border-radius: 3px; font-size: 12px; color: #1890FF; cursor: default;">
+                                    <span class="mock-checkbox checked" style="border-color: #1890FF; background: #1890FF;"></span> 抖音广告
+                                </span>
+                                <span style="display: inline-flex; align-items: center; gap: 4px; padding: 4px 10px; border: 1px solid #D9D9D9; border-radius: 3px; font-size: 12px; color: #333; cursor: default;">
+                                    <span class="mock-checkbox"></span> 小红书
+                                </span>
+                                <span style="display: inline-flex; align-items: center; gap: 4px; padding: 4px 10px; border: 1px solid #D9D9D9; border-radius: 3px; font-size: 12px; color: #333; cursor: default;">
+                                    <span class="mock-checkbox"></span> 自然搜索
+                                </span>
+                            </div>
+
+                            <div style="padding: 8px; background: #FFF8E1; border-left: 3px solid #D46B08; border-radius: 0 4px 4px 0; font-size: 11px; color: #8B6914;">
+                                若某条线索打标后超过 20 个标签上限，该条将跳过并在结果中提示。
+                            </div>
+                        </div>
+                        <div class="mock-modal-footer">
+                            <span class="mock-btn mock-btn-default">取消</span>
+                            &nbsp;
+                            <span class="mock-btn mock-btn-primary">确认打标</span>
+                        </div>
+                    </div>
+
+                    <div style="font-size: 12px; color: #555; max-width: 320px; line-height: 2;">
+                        <div style="font-weight: bold; margin-bottom: 4px;">交互说明：</div>
+                        <p>1. 弹窗标题显示"批量打标签"</p>
+                        <p>2. 顶部蓝色提示条显示已选条数</p>
+                        <p>3. 标签选择区与单条打标签一致</p>
+                        <p>4. <span class="c-key">追加模式</span>：选中的标签追加到每条线索已有标签上，不覆盖</p>
+                        <p>5. 单次最多选 <span class="c-key">100 条</span>线索</p>
+                        <p>6. 提交后提示"N条成功，M条因标签上限跳过"</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 弹窗：批量移除标签 -->
+            <div class="proto-card">
+                <div class="proto-card-title">弹窗 — 批量移除标签 <span class="annotation-marker">新增</span></div>
+                <div class="proto-card-body" style="display: flex; gap: 24px; flex-wrap: wrap;">
+                    <div class="mock-modal" style="max-width: 520px;">
+                        <div class="mock-modal-header">
+                            <strong>批量移除标签</strong>
+                            <span style="color: #999;">&#10005;</span>
+                        </div>
+                        <div class="mock-modal-body">
+                            <div style="padding: 8px 12px; background: #FFF1F0; border: 1px solid #FFA39E; border-radius: 4px; margin-bottom: 12px; font-size: 12px; color: #A8071A;">
+                                已选择 <strong>3</strong> 条线索，勾选要移除的标签
+                            </div>
+
+                            <div style="font-size: 12px; color: #666; margin-bottom: 8px;">以下为已选线索的<strong>共有标签</strong>（取交集）：</div>
+
+                            <div style="display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 12px;">
+                                <span style="display: inline-flex; align-items: center; gap: 4px; padding: 4px 10px; border: 1px solid #FF4D4F; background: #FFF1F0; border-radius: 3px; font-size: 12px; color: #FF4D4F; cursor: default;">
+                                    <span class="mock-checkbox checked" style="border-color: #FF4D4F; background: #FF4D4F;"></span> 一级标签A
+                                    <span style="font-size: 10px; color: #999; margin-left: 2px;">3/3条共有</span>
+                                </span>
+                                <span style="display: inline-flex; align-items: center; gap: 4px; padding: 4px 10px; border: 1px solid #D9D9D9; border-radius: 3px; font-size: 12px; color: #333; cursor: default;">
+                                    <span class="mock-checkbox"></span> 急需下单
+                                    <span style="font-size: 10px; color: #999; margin-left: 2px;">3/3条共有</span>
+                                </span>
+                                <span style="display: inline-flex; align-items: center; gap: 4px; padding: 4px 10px; border: 1px solid #D9D9D9; border-radius: 3px; font-size: 12px; color: #999; cursor: default;">
+                                    <span class="mock-checkbox"></span> 价格敏感
+                                    <span style="font-size: 10px; color: #D46B08; margin-left: 2px;">仅2/3条有</span>
+                                </span>
+                                <span style="display: inline-flex; align-items: center; gap: 4px; padding: 4px 10px; border: 1px solid #D9D9D9; border-radius: 3px; font-size: 12px; color: #999; cursor: default;">
+                                    <span class="mock-checkbox"></span> 抖音广告
+                                    <span style="font-size: 10px; color: #D46B08; margin-left: 2px;">仅1/3条有</span>
+                                </span>
+                            </div>
+
+                            <div style="padding: 8px; background: #FFF8E1; border-left: 3px solid #D46B08; border-radius: 0 4px 4px 0; font-size: 11px; color: #8B6914;">
+                                灰色标签表示仅部分线索拥有，勾选后仅从拥有该标签的线索上移除。
+                            </div>
+                        </div>
+                        <div class="mock-modal-footer">
+                            <span class="mock-btn mock-btn-default">取消</span>
+                            &nbsp;
+                            <span class="mock-btn" style="background: #FFF; border: 1px solid #FF4D4F; color: #FF4D4F;">确认移除</span>
+                        </div>
+                    </div>
+
+                    <div style="font-size: 12px; color: #555; max-width: 320px; line-height: 2;">
+                        <div style="font-weight: bold; margin-bottom: 4px;">交互说明：</div>
+                        <p>1. 弹窗标题显示"批量移除标签"</p>
+                        <p>2. 顶部红色提示条显示已选条数</p>
+                        <p>3. 展示所有已选线索的<span class="c-key">共有标签</span>（并集展示）</p>
+                        <p>4. 每个标签后标注"<strong>N/M条共有</strong>"</p>
+                        <p>5. 全部共有的标签正常色，仅部分共有的标签<span style="color: #999;">灰色</span>并附橙色提示</p>
+                        <p>6. 勾选后点确认，仅从拥有该标签的线索上移除</p>
+                        <p>7. 确认按钮为红色边框样式，区别于打标签的蓝色</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 标签筛选下拉示意 -->
+            <div class="proto-card">
+                <div class="proto-card-title">标签筛选下拉 — 多级级联选择</div>
+                <div class="proto-card-body" style="display: flex; gap: 24px;">
+                    <div class="mock-dropdown-menu" style="min-width: 320px;">
+                        <div style="padding: 8px 12px; border-bottom: 1px solid #E8E8E8;">
+                            <div class="mock-input" style="width: 100%;">搜索标签</div>
+                        </div>
+                        <div class="mock-dropdown-item" style="display: flex; align-items: center; gap: 6px;">
+                            <span class="tree-expand" style="font-size: 8px;">-</span>
+                            <strong>标签组A</strong>
+                            <span style="color: #999; font-size: 11px; margin-left: auto;">5个一级 / 17个二级</span>
+                        </div>
+                        <div class="mock-dropdown-item" style="padding-left: 32px; display: flex; align-items: center; gap: 6px;">
+                            <span class="color-dot" style="background: #F5222D;"></span>
+                            <span class="mock-checkbox checked"></span> 一级标签A
+                            <span style="margin-left: 8px;">
+                                <span style="font-size: 11px; color: #999;">急需下单</span>
+                                <span style="font-size: 11px; color: #999;">|</span>
+                                <span style="font-size: 11px; color: #999;">价格敏感</span>
+                            </span>
+                        </div>
+                        <div class="mock-dropdown-item" style="padding-left: 32px; display: flex; align-items: center; gap: 6px;">
+                            <span class="color-dot" style="background: #FA8C16;"></span>
+                            <span class="mock-checkbox"></span> 一级标签B
+                        </div>
+                        <div class="mock-dropdown-item" style="padding-left: 32px; display: flex; align-items: center; gap: 6px;">
+                            <span class="color-dot" style="background: #1890FF;"></span>
+                            <span class="mock-checkbox"></span> 一级标签C
+                        </div>
+                        <div class="mock-dropdown-item" style="display: flex; align-items: center; gap: 6px;">
+                            <span class="tree-expand" style="font-size: 8px;">+</span>
+                            <strong>标签组B</strong>
+                        </div>
+                        <div class="mock-dropdown-item" style="display: flex; align-items: center; gap: 6px;">
+                            <span class="tree-expand" style="font-size: 8px;">+</span>
+                            <strong>标签组C</strong>
+                        </div>
+                        <div style="padding: 8px 12px; border-top: 1px solid #E8E8E8; text-align: right;">
+                            <span class="mock-btn mock-btn-default" style="font-size: 11px;">重置</span>
+                            &nbsp;
+                            <span class="mock-btn mock-btn-primary" style="font-size: 11px;">确定</span>
+                        </div>
+                    </div>
+
+                    <div style="font-size: 12px; color: #555; max-width: 300px; line-height: 2;">
+                        <div style="font-weight: bold; margin-bottom: 4px;">筛选逻辑说明：</div>
+                        <p>同一标签组内多个标签为 <span class="c-key">OR（或）</span> 关系</p>
+                        <p>不同标签组之间为 <span class="c-key">AND（且）</span> 关系</p>
+                        <p>选中一级标签时，自动包含其下所有二级标签</p>
+                        <p>支持同时选择一级标签和具体二级标签</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ===== 页面6：标签检索线索 ===== -->
+        <div class="page-section" id="page-tag-search">
+            <div class="proto-card">
+                <div class="proto-card-title">标签检索线索 — 全局检索页</div>
+                <div class="proto-card-body">
+                    <div style="font-size: 12px; color: #999; margin-bottom: 12px;">CRM / 线索标签管理 / 标签检索线索</div>
+
+                    <!-- 检索区域 -->
+                    <div style="border: 1px solid #E8E8E8; border-radius: 6px; padding: 16px; margin-bottom: 16px; background: #FAFAFA;">
+                        <div style="font-size: 13px; font-weight: bold; color: #333; margin-bottom: 12px;">检索条件</div>
+                        <div style="display: flex; gap: 12px; flex-wrap: wrap; align-items: flex-start;">
+                            <!-- 产线筛选 -->
+                            <div>
+                                <div class="form-label">所属产线</div>
+                                <span class="mock-select">全部产线 ▾</span>
+                            </div>
+                            <!-- 标签组筛选 -->
+                            <div>
+                                <div class="form-label">标签组</div>
+                                <span class="mock-select">全部标签组 ▾</span>
+                            </div>
+                            <!-- 标签选择 -->
+                            <div style="flex: 1; min-width: 500px;">
+                                <div class="form-label">选择标签</div>
+                                <div style="border: 1px solid #D9D9D9; border-radius: 3px; padding: 6px 10px; background: #FFF; min-height: 36px; display: flex; gap: 4px; flex-wrap: wrap; align-items: center;">
+                                    <span style="display: inline-flex; align-items: center; gap: 3px; padding: 2px 8px; background: #FFF1F0; border: 1px solid #FFA39E; border-radius: 3px; font-size: 11px; color: #F5222D;">
+                                        一级标签A <span style="color: #999; cursor: default;">&#10005;</span>
+                                    </span>
+                                    <span style="display: inline-flex; align-items: center; gap: 3px; padding: 2px 8px; background: #E6F7FF; border: 1px solid #91D5FF; border-radius: 3px; font-size: 11px; color: #1890FF;">
+                                        抖音广告 <span style="color: #999; cursor: default;">&#10005;</span>
+                                    </span>
+                                    <span style="font-size: 12px; color: #BFBFBF; padding-left: 4px;">点击添加更多标签...</span>
+                                </div>
+                            </div>
+                            <div style="display: flex; align-items: flex-end; gap: 8px; padding-top: 18px;">
+                                <span class="mock-btn mock-btn-primary">检索</span>
+                                <span class="mock-btn mock-btn-default">重置</span>
+                            </div>
+                        </div>
+
+                        <!-- 已选标签展示 & 匹配逻辑 -->
+                        <div style="margin-top: 12px; display: flex; gap: 16px; align-items: center;">
+                            <div style="font-size: 12px; color: #999;">匹配逻辑：</div>
+                            <div style="display: flex; gap: 6px; align-items: center; font-size: 12px;">
+                                <span style="padding: 3px 10px; border: 2px solid #1890FF; border-radius: 3px; color: #1890FF; font-weight: bold; cursor: default;">AND（同时满足）</span>
+                                <span style="padding: 3px 10px; border: 1px solid #D9D9D9; border-radius: 3px; color: #999; cursor: default;">OR（满足任一）</span>
+                            </div>
+                        </div>
+
+                        <!-- 标签选择下拉面板（示意） -->
+                        <div style="margin-top: 12px; display: flex; gap: 16px;">
+                            <div class="mock-dropdown-menu" style="min-width: 360px;">
+                                <div style="padding: 8px 12px; border-bottom: 1px solid #E8E8E8;">
+                                    <div class="mock-input" style="width: 100%;">搜索标签名称</div>
+                                </div>
+                                <div class="mock-dropdown-item" style="display: flex; align-items: center; gap: 6px;">
+                                    <span class="tree-expand" style="font-size: 8px;">-</span>
+                                    <strong>标签组A</strong>
+                                </div>
+                                <div class="mock-dropdown-item" style="padding-left: 32px; display: flex; align-items: center; gap: 6px;">
+                                    <span class="color-dot" style="background: #F5222D;"></span>
+                                    <span class="mock-checkbox checked"></span> <strong>一级标签A</strong>
+                                    <span style="font-size: 11px; color: #1890FF; margin-left: 4px;">已选</span>
+                                </div>
+                                <div class="mock-dropdown-item" style="padding-left: 32px; display: flex; align-items: center; gap: 6px;">
+                                    <span class="color-dot" style="background: #FA8C16;"></span>
+                                    <span class="mock-checkbox"></span> 一级标签B
+                                </div>
+                                <div class="mock-dropdown-item" style="padding-left: 32px; display: flex; align-items: center; gap: 6px;">
+                                    <span class="color-dot" style="background: #1890FF;"></span>
+                                    <span class="mock-checkbox"></span> 一级标签C
+                                </div>
+                                <div class="mock-dropdown-item" style="display: flex; align-items: center; gap: 6px;">
+                                    <span class="tree-expand" style="font-size: 8px;">-</span>
+                                    <strong>标签组B</strong>
+                                </div>
+                                <div class="mock-dropdown-item" style="padding-left: 32px; display: flex; align-items: center; gap: 6px;">
+                                    <span class="color-dot" style="background: #1890FF;"></span>
+                                    <span class="mock-checkbox checked"></span> <strong>抖音广告</strong>
+                                    <span style="font-size: 11px; color: #1890FF; margin-left: 4px;">已选</span>
+                                </div>
+                                <div class="mock-dropdown-item" style="padding-left: 32px; display: flex; align-items: center; gap: 6px;">
+                                    <span class="color-dot" style="background: #52C41A;"></span>
+                                    <span class="mock-checkbox"></span> 小红书
+                                </div>
+                                <div class="mock-dropdown-item" style="display: flex; align-items: center; gap: 6px;">
+                                    <span class="tree-expand" style="font-size: 8px;">+</span>
+                                    <strong>标签组C</strong>
+                                </div>
+                            </div>
+
+                            <div style="font-size: 12px; color: #555; line-height: 2; max-width: 320px;">
+                                <div style="font-weight: bold; margin-bottom: 4px;">检索说明：</div>
+                                <p>当前筛选条件：同时满足 <span class="mock-tag mock-tag-red">一级标签A</span> 且 <span class="mock-tag mock-tag-blue">抖音广告</span></p>
+                                <p>可跨产线检索，也可限定特定产线</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- 检索结果统计 -->
+                    <div style="display: flex; gap: 16px; margin-bottom: 16px;">
+                        <div style="flex: 1; background: #FFF; border: 1px solid #E8E8E8; border-radius: 6px; padding: 12px 16px; text-align: center;">
+                            <div style="font-size: 24px; font-weight: bold; color: #1890FF;">156</div>
+                            <div style="font-size: 11px; color: #999;">匹配线索总数</div>
+                        </div>
+                        <div style="flex: 1; background: #FFF; border: 1px solid #E8E8E8; border-radius: 6px; padding: 12px 16px; text-align: center;">
+                            <div style="font-size: 24px; font-weight: bold; color: #52C41A;">3</div>
+                            <div style="font-size: 11px; color: #999;">覆盖产线数</div>
+                        </div>
+                    </div>
+
+                    <!-- 检索结果列表 -->
+                    <div class="mock-toolbar">
+                        <span style="font-size: 12px; color: #333; font-weight: bold;">检索结果</span>
+                        <div class="mock-divider"></div>
+                        <span class="mock-select">全部产线 ▾</span>
+                        <span class="mock-btn mock-btn-default">查询</span>
+                        <div style="margin-left: auto; display: flex; gap: 8px;">
+                            <span class="mock-btn mock-btn-default">导出结果</span>
+                            <div class="highlight-box">
+                                <span class="mock-btn mock-btn-primary">批量打标签</span>
+                                <span class="annotation-marker">新增</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <table class="mock-table">
+                        <thead>
+                            <tr>
+                                <th style="width: 40px;"><span class="mock-checkbox"></span></th>
+                                <th>手机号</th>
+                                <th>所属产线</th>
+                                <th>标签</th>
+                                <th>线索来源</th>
+                                <th>最后跟进</th>
+                                <th style="width: 120px;">操作</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td><span class="mock-checkbox"></span></td>
+                                <td>138****5678</td>
+                                <td><span class="mock-tag mock-tag-blue">业务线A</span></td>
+                                <td>
+                                    <span class="mock-tag mock-tag-red">一级标签A</span>
+                                    <span class="mock-tag mock-tag-blue">抖音广告</span>
+                                    <span class="mock-tag mock-tag-blue">急需下单</span>
+                                </td>
+                                <td>抖音广告</td>
+                                <td>2026-06-30</td>
+                                <td>
+                                    <a class="mock-link" href="#">详情</a> &nbsp;
+                                    <a class="mock-link" href="#">打标签</a>
+                                </td>
+                            </tr>
+                            <tr>
+                                <td><span class="mock-checkbox"></span></td>
+                                <td>176****3456</td>
+                                <td><span class="mock-tag mock-tag-green">业务线B</span></td>
+                                <td>
+                                    <span class="mock-tag mock-tag-red">一级标签A</span>
+                                    <span class="mock-tag mock-tag-blue">抖音广告</span>
+                                </td>
+                                <td>抖音广告</td>
+                                <td>—</td>
+                                <td>
+                                    <a class="mock-link" href="#">详情</a> &nbsp;
+                                    <a class="mock-link" href="#">打标签</a>
+                                </td>
+                            </tr>
+                            <tr>
+                                <td><span class="mock-checkbox"></span></td>
+                                <td>155****7890</td>
+                                <td><span class="mock-tag mock-tag-orange">业务线C</span></td>
+                                <td>
+                                    <span class="mock-tag mock-tag-red">一级标签A</span>
+                                    <span class="mock-tag mock-tag-blue">抖音广告</span>
+                                    <span class="mock-tag mock-tag-purple">VIP客户</span>
+                                </td>
+                                <td>抖音广告</td>
+                                <td>2026-06-29</td>
+                                <td>
+                                    <a class="mock-link" href="#">详情</a> &nbsp;
+                                    <a class="mock-link" href="#">打标签</a>
+                                </td>
+                            </tr>
+                            <tr>
+                                <td><span class="mock-checkbox"></span></td>
+                                <td>189****2345</td>
+                                <td><span class="mock-tag mock-tag-cyan">业务线E</span></td>
+                                <td>
+                                    <span class="mock-tag mock-tag-red">一级标签A</span>
+                                    <span class="mock-tag mock-tag-blue">抖音广告</span>
+                                </td>
+                                <td>抖音广告</td>
+                                <td>2026-06-28</td>
+                                <td>
+                                    <a class="mock-link" href="#">详情</a> &nbsp;
+                                    <a class="mock-link" href="#">打标签</a>
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                    <div class="mock-pagination">
+                        共 156 条 &nbsp;
+                        <span class="mock-page-btn">&lt;</span>
+                        <span class="mock-page-btn mock-page-active">1</span>
+                        <span class="mock-page-btn">2</span>
+                        <span class="mock-page-btn">3</span>
+                        <span class="mock-page-btn">...</span>
+                        <span class="mock-page-btn">16</span>
+                        <span class="mock-page-btn">&gt;</span>
+                        &nbsp; 10条/页
+                    </div>
+                </div>
+            </div>
+
+            <!-- 产线分布视图 -->
+            <div class="proto-card">
+                <div class="proto-card-title">检索结果 — 产线分布统计（附加视图）</div>
+                <div class="proto-card-body">
+                    <div style="display: flex; gap: 12px; flex-wrap: wrap;">
+                        <div style="flex: 1; min-width: 200px; border: 1px solid #E8E8E8; border-radius: 6px; padding: 14px; background: #FFF;">
+                            <div style="display: flex; align-items: center; gap: 6px; margin-bottom: 8px;">
+                                <span class="color-dot" style="background: #1890FF;"></span>
+                                <span style="font-size: 12px; font-weight: bold; color: #333;">业务线A</span>
+                            </div>
+                            <div style="font-size: 22px; font-weight: bold; color: #1890FF;">68</div>
+                            <div style="font-size: 11px; color: #999; margin-top: 2px;">占比 43.6%</div>
+                            <div style="margin-top: 8px; height: 4px; background: #E8E8E8; border-radius: 2px;">
+                                <div style="width: 43.6%; height: 100%; background: #1890FF; border-radius: 2px;"></div>
+                            </div>
+                        </div>
+                        <div style="flex: 1; min-width: 200px; border: 1px solid #E8E8E8; border-radius: 6px; padding: 14px; background: #FFF;">
+                            <div style="display: flex; align-items: center; gap: 6px; margin-bottom: 8px;">
+                                <span class="color-dot" style="background: #52C41A;"></span>
+                                <span style="font-size: 12px; font-weight: bold; color: #333;">业务线B</span>
+                            </div>
+                            <div style="font-size: 22px; font-weight: bold; color: #52C41A;">42</div>
+                            <div style="font-size: 11px; color: #999; margin-top: 2px;">占比 26.9%</div>
+                            <div style="margin-top: 8px; height: 4px; background: #E8E8E8; border-radius: 2px;">
+                                <div style="width: 26.9%; height: 100%; background: #52C41A; border-radius: 2px;"></div>
+                            </div>
+                        </div>
+                        <div style="flex: 1; min-width: 200px; border: 1px solid #E8E8E8; border-radius: 6px; padding: 14px; background: #FFF;">
+                            <div style="display: flex; align-items: center; gap: 6px; margin-bottom: 8px;">
+                                <span class="color-dot" style="background: #FA8C16;"></span>
+                                <span style="font-size: 12px; font-weight: bold; color: #333;">业务线C</span>
+                            </div>
+                            <div style="font-size: 22px; font-weight: bold; color: #FA8C16;">28</div>
+                            <div style="font-size: 11px; color: #999; margin-top: 2px;">占比 17.9%</div>
+                            <div style="margin-top: 8px; height: 4px; background: #E8E8E8; border-radius: 2px;">
+                                <div style="width: 17.9%; height: 100%; background: #FA8C16; border-radius: 2px;"></div>
+                            </div>
+                        </div>
+                        <div style="flex: 1; min-width: 200px; border: 1px solid #E8E8E8; border-radius: 6px; padding: 14px; background: #FFF;">
+                            <div style="display: flex; align-items: center; gap: 6px; margin-bottom: 8px;">
+                                <span class="color-dot" style="background: #13C2C2;"></span>
+                                <span style="font-size: 12px; font-weight: bold; color: #333;">业务线E</span>
+                            </div>
+                            <div style="font-size: 22px; font-weight: bold; color: #13C2C2;">18</div>
+                            <div style="font-size: 11px; color: #999; margin-top: 2px;">占比 11.5%</div>
+                            <div style="margin-top: 8px; height: 4px; background: #E8E8E8; border-radius: 2px;">
+                                <div style="width: 11.5%; height: 100%; background: #13C2C2; border-radius: 2px;"></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ===== 页面7：标签操作日志 ===== -->
+        <div class="page-section" id="page-tag-log">
+            <div class="proto-card">
+                <div class="proto-card-title">标签操作日志 — 全局查询页</div>
+                <div class="proto-card-body">
+                    <div style="font-size: 12px; color: #999; margin-bottom: 12px;">CRM / 线索标签管理 / 标签操作日志</div>
+
+                    <!-- 筛选栏 -->
+                    <div class="mock-toolbar">
+                        <span class="mock-select">操作类型 ▾</span>
+                        <span class="mock-select">所属产线 ▾</span>
+                        <span class="mock-input" style="width: 120px;">操作人工号/姓名</span>
+                        <span class="mock-input" style="width: 120px;">线索手机号</span>
+                        <span class="mock-input" style="width: 100px;">标签名称</span>
+                        <span class="mock-input" style="width: 180px;">2026-06-01 ~ 2026-07-01</span>
+                        <span class="mock-btn mock-btn-default">查询</span>
+                        <span class="mock-btn mock-btn-default">重置</span>
+                        <div style="margin-left: auto;">
+                            <span class="mock-btn mock-btn-default">导出</span>
+                        </div>
+                    </div>
+
+                    <!-- 日志列表 -->
+                    <table class="mock-table">
+                        <thead>
+                            <tr>
+                                <th style="width: 150px;">操作时间</th>
+                                <th style="width: 140px;">操作人（工号）</th>
+                                <th style="width: 90px;">操作类型</th>
+                                <th>所属产线</th>
+                                <th style="width: 120px;">线索手机号</th>
+                                <th>标签名称</th>
+                                <th style="width: 100px;">操作来源</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td>2026-07-01 14:32:08</td>
+                                <td>张三 <span style="color: #999;">(80012345)</span></td>
+                                <td><span class="mock-tag mock-tag-green">添加标签</span></td>
+                                <td><span class="mock-tag mock-tag-blue">业务线A</span></td>
+                                <td>138****5678</td>
+                                <td><span class="mock-tag mock-tag-red">一级标签A</span></td>
+                                <td>标签操作</td>
+                            </tr>
+                            <tr>
+                                <td>2026-07-01 14:32:08</td>
+                                <td>张三 <span style="color: #999;">(80012345)</span></td>
+                                <td><span class="mock-tag mock-tag-green">添加标签</span></td>
+                                <td><span class="mock-tag mock-tag-blue">业务线A</span></td>
+                                <td>138****5678</td>
+                                <td><span class="mock-tag mock-tag-blue">抖音广告</span></td>
+                                <td>标签操作</td>
+                            </tr>
+                            <tr>
+                                <td>2026-07-01 11:15:22</td>
+                                <td>李四 <span style="color: #999;">(80056789)</span></td>
+                                <td><span class="mock-tag mock-tag-orange">移除标签</span></td>
+                                <td><span class="mock-tag mock-tag-green">业务线B</span></td>
+                                <td>176****3456</td>
+                                <td><span class="mock-tag mock-tag-orange">一级标签B</span></td>
+                                <td>线索池手动</td>
+                            </tr>
+                            <tr>
+                                <td>2026-07-01 10:08:45</td>
+                                <td>王五 <span style="color: #999;">(80090123)</span></td>
+                                <td><span class="mock-tag mock-tag-green">添加标签</span></td>
+                                <td><span class="mock-tag mock-tag-orange">业务线C</span></td>
+                                <td>155****7890</td>
+                                <td><span class="mock-tag mock-tag-red">一级标签A</span> <span class="mock-tag mock-tag-purple">VIP客户</span></td>
+                                <td>批量打标</td>
+                            </tr>
+                            <tr>
+                                <td>2026-06-30 16:42:11</td>
+                                <td>张三 <span style="color: #999;">(80012345)</span></td>
+                                <td><span class="mock-tag mock-tag-green">添加标签</span></td>
+                                <td><span class="mock-tag mock-tag-blue">业务线A</span></td>
+                                <td>189****2345</td>
+                                <td><span class="mock-tag mock-tag-red" style="background: #FFF1F0; color: #FF4D4F;">一级标签E</span></td>
+                                <td>标签操作</td>
+                            </tr>
+                            <tr style="background: #FFF1F0;">
+                                <td>2026-06-30 16:42:11</td>
+                                <td>张三 <span style="color: #999;">(80012345)</span></td>
+                                <td><span style="display: inline-block; padding: 1px 6px; border-radius: 3px; font-size: 11px; background: #FFF1F0; color: #FF4D4F; border: 1px solid #FFA39E;">触发事件</span></td>
+                                <td><span class="mock-tag mock-tag-blue">业务线A</span></td>
+                                <td>189****2345</td>
+                                <td><span style="display: inline-block; padding: 1px 6px; border-radius: 3px; font-size: 11px; background: #FFF1F0; color: #FF4D4F; border: 1px solid #FFA39E;">一级标签E</span> → 线索标记无效</td>
+                                <td>系统触发</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                    <div class="mock-pagination">
+                        共 2,456 条 &nbsp;
+                        <span class="mock-page-btn">&lt;</span>
+                        <span class="mock-page-btn mock-page-active">1</span>
+                        <span class="mock-page-btn">2</span>
+                        <span class="mock-page-btn">3</span>
+                        <span class="mock-page-btn">...</span>
+                        <span class="mock-page-btn">246</span>
+                        <span class="mock-page-btn">&gt;</span>
+                        &nbsp; 10条/页
+                    </div>
+
+                    <div class="note-box" style="margin-top: 12px;">
+                        触发事件产生的日志会以特殊样式标记（红色背景行），便于追溯线索被标记无效的原因和操作链路。
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ===== 页面8：改动范围与权限 ===== -->
+        <div class="page-section" id="page-impact">
+            <div class="impact-card" style="margin-bottom: 20px;">
+                <h3>改动范围总览</h3>
+                <p>
+                    <strong>新增页面：</strong>标签组管理页、标签管理页、标签检索线索页、标签操作日志页（均在 CRM > 线索标签管理 菜单下）<br>
+                    <strong>改造页面：</strong>
+                    <strong>改动页面：</strong>业务线A线索池、业务线B线索池、业务线C线索池、业务线D线索池、业务线E线索池（5个线索池列表页均需新增标签列和打标签操作）<br>
+                    <strong>新增接口：</strong>标签组 CRUD、标签 CRUD、线索打标签/移除标签、标签筛选查询、标签检索线索及导出、获取常用标签、恢复线索有效、标签操作日志查询及导出（共21个接口）<br>
+                    <strong>数据变更：</strong>新增 tag_group、tag、tag_product_line、lead_tag_relation、tag_operation_log 五张表；tag 表新增 trigger_event 字段
+                </p>
+            </div>
+
+            <div class="proto-card">
+                <div class="proto-card-title">接口设计概要</div>
+                <div class="proto-card-body">
+                    <table class="mock-table">
+                        <thead>
+                            <tr>
+                                <th>接口</th>
+                                <th>方法</th>
+                                <th>路径</th>
+                                <th>说明</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr><td>标签组列表</td><td>GET</td><td>/api/crm/tag-group/list</td><td>分页查询，支持名称搜索、状态筛选</td></tr>
+                            <tr><td>创建标签组</td><td>POST</td><td>/api/crm/tag-group/create</td><td>name, code, sort, remark</td></tr>
+                            <tr><td>编辑标签组</td><td>PUT</td><td>/api/crm/tag-group/update/{id}</td><td>name, sort, remark</td></tr>
+                            <tr><td>启用/停用标签组</td><td>PUT</td><td>/api/crm/tag-group/toggle/{id}</td><td>status: 0/1</td></tr>
+                            <tr><td>标签列表</td><td>GET</td><td>/api/crm/tag/list</td><td>支持 group_id、parent_id、product_line 筛选</td></tr>
+                            <tr><td>创建标签</td><td>POST</td><td>/api/crm/tag/create</td><td>group_id, parent_id, name, color, sort, product_line_ids</td></tr>
+                            <tr><td>编辑标签</td><td>PUT</td><td>/api/crm/tag/update/{id}</td><td>name, color, sort, product_line_ids</td></tr>
+                            <tr><td>启用/停用标签</td><td>PUT</td><td>/api/crm/tag/toggle/{id}</td><td>status: 0/1</td></tr>
+                            <tr><td>线索打标签</td><td>POST</td><td>/api/crm/lead/add-tags</td><td>lead_ids[], tag_ids[]</td></tr>
+                            <tr><td>线索移除标签</td><td>POST</td><td>/api/crm/lead/remove-tags</td><td>lead_ids[], tag_ids[]</td></tr>
+                            <tr><td>标签筛选下拉数据</td><td>GET</td><td>/api/crm/tag/tree</td><td>返回标签组-一级-二级树形结构</td></tr>
+                            <tr><td>标签检索线索</td><td>GET</td><td>/api/crm/lead/search-by-tags</td><td>tag_ids[], match_mode, product_line_id, 分页</td></tr>
+                            <tr><td>检索结果统计</td><td>GET</td><td>/api/crm/lead/search-by-tags/stats</td><td>返回总数、产线分布、分配占比等</td></tr>
+                            <tr><td>导出检索结果</td><td>GET</td><td>/api/crm/lead/search-by-tags/export</td><td>返回 Excel 文件流，上限5000条</td></tr>
+                                                        <tr><td>获取常用标签</td><td>GET</td><td>/api/crm/tag/frequent</td><td>返回当前操作人历史最常用的二级标签 Top 10（按使用次数降序）</td></tr>
+                            <tr><td>查询操作日志</td><td>GET</td><td>/api/crm/tag-log/list</td><td>分页查询，支持多条件筛选</td></tr>
+                            <tr><td>导出操作日志</td><td>GET</td><td>/api/crm/tag-log/export</td><td>返回 Excel 文件流，上限10000条</td></tr>
+                            <tr><td>恢复线索有效</td><td>POST</td><td>/api/crm/lead/first-call-restore</td><td>lead_id, restore_reason；恢复线索状态并写入日志</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <div class="proto-card">
+                <div class="proto-card-title">需控权的菜单/按钮清单 <span style="font-size: 11px; color: #999; font-weight: normal;">— 开发只需标记以下元素，上线后在角色权限模块配置</span></div>
+                <div class="proto-card-body">
+                    <table class="mock-table">
+                        <thead>
+                            <tr>
+                                <th>所属页面</th>
+                                <th>控权元素</th>
+                                <th>建议权限标识</th>
+                                <th>说明</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td>CRM 菜单</td>
+                                <td><span class="mock-tag mock-tag-blue">线索标签管理</span> 菜单</td>
+                                <td>crm:tag:menu</td>
+                                <td>整个标签管理菜单的可见性控制</td>
+                            </tr>
+                            <tr>
+                                <td>标签组管理</td>
+                                <td><span class="mock-btn mock-btn-primary" style="font-size: 11px;">+ 新建标签组</span></td>
+                                <td>crm:tag:group:create</td>
+                                <td>新建按钮</td>
+                            </tr>
+                            <tr>
+                                <td>标签组管理</td>
+                                <td>操作列 <a class="mock-link" href="#">编辑</a> / <a class="mock-link" href="#">启停</a></td>
+                                <td>crm:tag:group:edit</td>
+                                <td>编辑和启停操作</td>
+                            </tr>
+                            <tr>
+                                <td>标签管理</td>
+                                <td><span class="mock-btn mock-btn-primary" style="font-size: 11px;">+ 新建一级/二级标签</span></td>
+                                <td>crm:tag:tag:create</td>
+                                <td>新建标签按钮</td>
+                            </tr>
+                            <tr>
+                                <td>标签管理</td>
+                                <td>操作列 <a class="mock-link" href="#">编辑</a> / <a class="mock-link" href="#">启停</a></td>
+                                <td>crm:tag:tag:edit</td>
+                                <td>编辑和启停操作</td>
+                            </tr>
+                            <tr>
+                                <td>各线索池列表</td>
+                                <td><span class="mock-btn mock-btn-primary" style="font-size: 11px;">批量打标签</span> / <span class="mock-btn mock-btn-default" style="font-size: 11px;">批量移除标签</span></td>
+                                <td>crm:lead:tag:batch</td>
+                                <td>批量操作按钮</td>
+                            </tr>
+                            <tr>
+                                <td>标签检索线索</td>
+                                <td><span class="mock-tag mock-tag-blue">标签检索线索</span> 菜单</td>
+                                <td>crm:tag:search:menu</td>
+                                <td>标签检索页面入口</td>
+                            </tr>
+                            <tr>
+                                <td>标签检索线索</td>
+                                <td><span class="mock-btn mock-btn-default" style="font-size: 11px;">导出结果</span></td>
+                                <td>crm:tag:search:export</td>
+                                <td>导出按钮</td>
+                            </tr>
+                            <tr>
+                                <td>标签管理</td>
+                                <td>编辑<span style="color: #FF4D4F;">二级</span>标签弹窗 <span style="color: #FF4D4F; font-size: 11px;">触发事件</span> 下拉</td>
+                                <td>crm:tag:trigger:edit</td>
+                                <td>配置标签触发事件的权限</td>
+                            </tr>
+                            <tr>
+                                <td>CRM 菜单</td>
+                                <td><span class="mock-tag mock-tag-blue">标签操作日志</span> 菜单</td>
+                                <td>crm:tag:log:menu</td>
+                                <td>标签操作日志页面入口</td>
+                            </tr>
+                            <tr>
+                                <td>线索列表</td>
+                                <td><span class="mock-btn mock-btn-primary" style="font-size: 11px;">恢复为有效</span> 按钮</td>
+                                <td>crm:lead:firstcall:restore</td>
+                                <td>标签恢复操作，建议仅管理员/主管</td>
+                            </tr>
+                        </tbody>
+                    </table>
+
+                    <div class="note-box">
+                        以上 11 个权限点需在系统角色权限模块中配置。无需控权的操作（如查看列表、单条打标签、标签筛选）默认可见，无需标记。
+                    </div>
+                </div>
+            </div>
+
+            <div class="proto-card">
+                <div class="proto-card-title">业务规则与约束</div>
+                <div class="proto-card-body" style="font-size: 13px; line-height: 2.2;">
+                    <table class="mock-table">
+                        <thead>
+                            <tr><th style="width: 160px;">规则项</th><th>说明</th></tr>
+                        </thead>
+                        <tbody>
+                            <tr><td>标签组名称唯一性</td><td>同一系统内标签组名称 <span style="color: #9B0000; font-weight: bold;">不可重复</span>，编码也不可重复</td></tr>
+                            <tr><td>标签名称唯一性</td><td>同一标签组内，一级标签名称 <span style="color: #9B0000; font-weight: bold;">不可重复</span>；同一级标签下，二级标签名称不可重复</td></tr>
+                            <tr><td>标签组停用联动</td><td>停用标签组时，<span style="color: #CA0606;">其下所有标签同步停用</span>，已打标签的线索数据保留，但标签不再可选</td></tr>
+                            <tr><td>一级标签停用联动</td><td>停用一级标签时，<span style="color: #CA0606;">其下所有二级标签同步停用</span></td></tr>
+                            <tr><td>删除保护</td><td>已被线索使用的标签 <span style="color: #9B0000; font-weight: bold;">不可删除</span>，只可停用；未使用的标签可物理删除</td></tr>
+                            <tr><td>单线索标签上限</td><td>单条线索最多可打 <span style="color: #9B0000; font-weight: bold;">20个</span> 标签（含一级和二级）</td></tr>
+                            <tr><td>批量打标签上限</td><td>单次批量操作最多选择 <span style="color: #9B0000; font-weight: bold;">100条</span> 线索</td></tr>
+                            <tr><td>产线隔离</td><td>标签配置的"使用产线"决定其在线索池中的可见性：<span style="color: #9B0000; font-weight: bold;">业务线A线索池只显示关联了"业务线A"产线的标签</span></td></tr>
+                            <tr><td>颜色预设</td><td>系统预设 8 种颜色：红、橙、黄、绿、蓝、紫、青、灰，<span style="color: #0076FF;">二级标签默认继承一级标签颜色，也可单独设置</span></td></tr>
+                            <tr><td>使用次数统计</td><td>标签使用次数由系统自动统计（线索关联数），<span style="color: #0076FF;">仅展示不可手动修改</span></td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+    </div>
+
+    <!-- ========== 右侧：需求说明面板 ========== -->
+    <div class="desc-panel" id="descPanel">
+
+        <!-- ===== 说明：需求概述 ===== -->
+        <div class="page-section active" id="desc-overview">
+            <div class="desc-header">
+                <div class="desc-breadcrumb">V1.0.0 > 需求概述</div>
+                <h2>业务标签管理 — 需求概述</h2>
+            </div>
+            <div class="desc-content">
+                <div class="sub-title">1.1 需求背景</div>
+                <p class="indent">当前 CRM 系统中线索数据缺乏灵活的标签分类能力。各业务线（业务线A、业务线B、业务线C、业务线D、业务线E）运营人员无法根据标签组A、标签组B、标签组C等维度对线索进行精细化分类，导致线索筛选效率低、精准营销能力不足。</p>
+                <p class="indent">业务侧提出在后台管理系统（管理后台）的 CRM 模块下，新增"线索标签管理"功能，建立统一的标签体系和打标能力。</p>
+
+                <hr class="desc-divider">
+
+                <div class="sub-title">1.2 需求目标</div>
+                <p class="indent">1. 建立统一的标签管理体系，支持标签组 → 一级标签 → 二级标签的三级结构。</p>
+                <p class="indent">2. 支持标签颜色配置，便于视觉区分。</p>
+                <p class="indent">3. 支持标签与产线的关联配置，实现产线级别的标签隔离。</p>
+                <p class="indent">4. 在各业务线线索池列表中新增标签列，支持单条和批量打标签操作。</p>
+                <p class="indent">5. 支持按标签筛选线索，提升线索检索效率。</p>
+                <p class="indent">6. 统计标签使用次数和使用产线分布，辅助标签治理和优化。</p>
+                <p class="indent">7. 提供跨产线的全局标签检索能力，通过组合标签条件快速定位目标线索集合。</p>
+
+                <hr class="desc-divider">
+
+                <div class="sub-title">1.3 功能范围</div>
+                <p class="indent"><span class="c-note">新增菜单：</span>CRM → 线索标签管理（下设"标签组管理"、"标签管理"和"标签检索线索"三个子菜单）</p>
+                <p class="indent"><span class="c-note">改动页面：</span>5个线索池列表页（业务线A/业务线B/业务线C/业务线D/业务线E）均新增标签列和操作入口</p>
+                <p class="indent"><span class="c-note">新增数据表：</span>tag_group（标签组）、tag（标签）、tag_product_line（标签-产线关联）、lead_tag_relation（线索-标签关联）</p>
+
+                <div class="info-box">
+                    本需求不涉及标签的自动打标逻辑（如根据行为自动打标签），仅支持手动打标。自动打标能力作为后续迭代规划。
+                </div>
+
+                <hr class="desc-divider">
+
+                <div class="sub-title">1.4 用户角色</div>
+                <p class="indent"><strong>CRM管理员 / 超级管理员：</strong>负责标签体系的搭建和维护（标签组/标签的增删改、启停操作）。</p>
+                <p class="indent"><strong>产线经理：</strong>在线索池中使用标签对线索进行分类。</p>
+                <p class="indent"><strong>客服/销售人员：</strong>在线索池中使用标签，但不具备标签体系管理权限和批量打标权限。</p>
+            </div>
+        </div>
+
+        <!-- ===== 说明：标签组管理 ===== -->
+        <div class="page-section" id="desc-tag-group">
+            <div class="desc-header">
+                <div class="desc-breadcrumb">V1.0.0 > 标签组管理</div>
+                <h2>标签组管理</h2>
+            </div>
+            <div class="desc-content">
+                <div class="sub-title">2.1 页面入口</div>
+                <p class="indent">菜单路径：<span class="c-note">CRM → 线索标签管理 → 标签组管理</span></p>
+                <p class="indent">权限要求：需拥有"标签管理"菜单权限的角色可见。</p>
+
+                <hr class="desc-divider">
+
+                <div class="sub-title">2.2 列表页字段</div>
+                <p class="indent">列表展示以下列：序号、标签组名称、标签组编码、排序、下辖标签数（分别显示一级和二级数量）、状态、创建时间、操作。</p>
+                <p class="indent">支持按标签组名称模糊搜索，按状态（启用/停用）筛选。</p>
+
+                <div class="sub-title">2.3 操作项</div>
+                <p class="indent"><span class="c-key">新建标签组：</span>点击"+ 新建标签组"按钮，弹出新建表单。</p>
+                <p class="indent"><span class="c-key">编辑：</span>修改标签组名称、排序、备注。标签组编码创建后不可修改。</p>
+                <p class="indent"><span class="c-key">查看标签：</span>跳转到"标签管理"页面，并自动选中该标签组。</p>
+                <p class="indent"><span class="c-key">启用/停用：</span>停用标签组时，其下所有标签同步停用。需二次确认弹窗："停用后该标签组下所有标签将同步停用，已关联线索的标签数据保留但不再可选，确定停用吗？"</p>
+
+                <div class="danger-box">
+                    标签组编码为系统唯一标识，创建后不可修改。请确保编码规范统一（建议大写字母+下划线格式，如 CUSTOMER_INTENT）。
+                </div>
+
+                <hr class="desc-divider">
+
+                <div class="sub-title">2.4 新建/编辑标签组弹窗</div>
+                <p class="indent">表单字段：</p>
+                <p class="indent" style="padding-left: 32px;">
+                    <span class="c-key">*</span> 标签组名称：必填，≤20字，系统内唯一<br>
+                    <span class="c-key">*</span> 标签组编码：必填，仅新建时可填，英文大写字母+下划线，系统内唯一<br>
+                    排序：选填，数值型，越小越靠前，默认值 0<br>
+                    备注：选填，≤200字
+                </p>
+
+                <div class="note-box">
+                    建议初始标签组包括：标签组A、标签组B、标签组C。后续可根据业务需要灵活扩展。
+                </div>
+            </div>
+        </div>
+
+        <!-- ===== 说明：标签管理 ===== -->
+        <div class="page-section" id="desc-tag-manage">
+            <div class="desc-header">
+                <div class="desc-breadcrumb">V1.0.0 > 标签管理</div>
+                <h2>标签管理</h2>
+            </div>
+            <div class="desc-content">
+                <div class="sub-title">3.1 页面布局</div>
+                <p class="indent">采用<span class="c-key">左右分栏布局</span>：</p>
+                <p class="indent" style="padding-left: 32px;">
+                    <strong>左侧（260px）：</strong>标签组树形列表，显示各标签组及其下辖标签数量，点击切换右侧内容。<br>
+                    <strong>右侧：</strong>标签列表区，支持"一级标签"和"二级标签"两个 Tab 切换。
+                </p>
+
+                <hr class="desc-divider">
+
+                <div class="sub-title">3.2 一级标签列表</div>
+                <p class="indent">列表字段：标签名称、标签颜色（色块+文字）、所属标签组、使用产线（多标签展示）、使用次数、排序、状态、操作。</p>
+                <p class="indent">筛选条件：标签名称搜索、产线筛选、状态筛选。</p>
+                <p class="indent">操作项：</p>
+                <p class="indent" style="padding-left: 32px;">
+                    <span class="c-key">编辑：</span>修改标签名称、颜色、使用产线、排序<br>
+                    <span class="c-key">二级标签(N)：</span>跳转到二级标签 Tab，并自动筛选该一级标签<br>
+                    <span class="c-key">启用/停用：</span>停用时其下所有二级标签同步停用
+                </p>
+
+                <hr class="desc-divider">
+
+                <div class="sub-title">3.3 二级标签列表</div>
+                <p class="indent">列表字段：标签名称、标签颜色、所属一级标签、使用产线、使用次数、排序、状态、操作。</p>
+                <p class="indent">顶部显示当前筛选的一级标签，支持切换。</p>
+
+                <hr class="desc-divider">
+
+                <div class="sub-title">3.4 新建一级标签</div>
+                <p class="indent">表单字段：</p>
+                <p class="indent" style="padding-left: 32px;">
+                    <span class="c-key">*</span> 标签组：下拉选择，必填<br>
+                    <span class="c-key">*</span> 标签名称：必填，≤15字，同一标签组内唯一<br>
+                    <span class="c-key">*</span> 标签颜色：8色选一（红/橙/黄/绿/蓝/紫/青/灰），必填<br>
+                    <span class="c-key">*</span> 使用产线：多选复选框（业务线A/业务线B/业务线C/业务线D/业务线E），至少选一个<br>
+                    排序：选填，数值型
+                </p>
+
+                <hr class="desc-divider">
+
+                <div class="sub-title">3.5 新建二级标签</div>
+                <p class="indent">表单字段：</p>
+                <p class="indent" style="padding-left: 32px;">
+                    <span class="c-key">*</span> 所属一级标签：下拉选择，必填<br>
+                    <span class="c-key">*</span> 标签名称：必填，≤15字，同一级标签下唯一<br>
+                    标签颜色：<span class="c-note">默认继承一级标签颜色</span>，可单独修改<br>
+                    使用产线：<span class="c-note">默认继承一级标签产线配置，可缩减范围但不能超出一级标签范围</span><br>
+                    排序：选填
+                </p>
+
+                <div class="info-box">
+                    二级标签的使用产线范围不能超出其所属一级标签的产线配置。如果一级标签关联了"业务线A"和"业务线C"，则二级标签只能在这两个产线中选择。
+                </div>
+
+                <hr class="desc-divider">
+
+                <div class="sub-title">3.6 标签颜色</div>
+                <p class="indent">系统预设8种颜色，使用色块选择器：</p>
+                <p class="indent" style="padding-left: 32px;">
+                    <span class="color-dot" style="background: #F5222D;"></span> 红色 #F5222D &nbsp;&nbsp;
+                    <span class="color-dot" style="background: #FA8C16;"></span> 橙色 #FA8C16 &nbsp;&nbsp;
+                    <span class="color-dot" style="background: #FAAD14;"></span> 黄色 #FAAD14 &nbsp;&nbsp;
+                    <span class="color-dot" style="background: #52C41A;"></span> 绿色 #52C41A &nbsp;&nbsp;
+                    <span class="color-dot" style="background: #1890FF;"></span> 蓝色 #1890FF &nbsp;&nbsp;
+                    <span class="color-dot" style="background: #722ED1;"></span> 紫色 #722ED1 &nbsp;&nbsp;
+                    <span class="color-dot" style="background: #13C2C2;"></span> 青色 #13C2C2 &nbsp;&nbsp;
+                    <span class="color-dot" style="background: #999;"></span> 灰色 #999999
+                </p>
+
+                <hr class="desc-divider">
+
+                <div class="sub-title">3.7 使用次数统计</div>
+                <p class="indent">使用次数 = 当前关联了该标签的线索数量（去重），由系统自动统计，实时刷新。</p>
+                <p class="indent">使用产线 = 该标签配置关联的产线列表，以标签形式展示。</p>
+
+                <div class="note-box">
+                    使用次数为只读统计值，不可手动修改。该数据可作为后续标签治理（清理低频标签）的依据。
+                </div>
+            </div>
+        </div>
+
+        <!-- ===== 说明：线索池打标签 ===== -->
+        <div class="page-section" id="desc-lead-tagging">
+            <div class="desc-header">
+                <div class="desc-breadcrumb">V1.0.0 > 线索池打标签</div>
+                <h2>线索池打标签</h2>
+            </div>
+            <div class="desc-content">
+                <div class="sub-title">4.1 影响页面</div>
+                <p class="indent">以下 5 个线索池列表页均需改动：</p>
+                <p class="indent" style="padding-left: 32px;">
+                    CRM → 线索管理 → 业务线A线索池<br>
+                    CRM → 线索管理 → 业务线B线索池<br>
+                    CRM → 线索管理 → 业务线C线索池<br>
+                    CRM → 线索管理 → 业务线D线索池<br>
+                    CRM → 线索管理 → 业务线E线索池
+                </p>
+
+                <hr class="desc-divider">
+
+                <div class="sub-title">4.2 新增标签列</div>
+                <p class="indent">在线索列表表格中，<span class="c-key">在"线索来源"列之后新增"标签"列</span>。</p>
+                <p class="indent">标签列展示规则：</p>
+                <p class="indent" style="padding-left: 32px;">
+                    1. 以标签色块 + 标签名的形式展示，一行内横向排列，自动换行<br>
+                    2. 标签颜色取自标签配置的颜色值<br>
+                    3. <span class="c-key">鼠标悬浮在标签上时，标签右上角浮现 ✕ 关闭按钮</span>，点击后弹出二次确认"确定移除标签「XXX」吗？"，确认后即时移除该标签<br>
+                    4. 标签下方显示 <span class="c-note">"+ 添加标签"</span> 链接，点击弹出打标签弹窗<br>
+                    5. <span class="c-key">产线隔离</span>：仅显示当前线索所属产线关联的标签，其他产线的标签不可见也不可选
+                </p>
+
+                <hr class="desc-divider">
+
+                <div class="sub-title">4.3 单条打标签</div>
+                <p class="indent">点击线索行的"+ 添加标签"链接，或点击操作栏中的"打标签"按钮，弹出打标签弹窗。</p>
+                <p class="indent">弹窗交互：</p>
+                <p class="indent" style="padding-left: 32px;">
+                    1. 顶部"已选标签"区域展示当前线索已关联的所有标签，每个标签右侧带 <span class="c-key">✕ 关闭按钮</span>，点击即可移除该标签<br>
+                    2. 下方按标签组分区展示所有可选标签，每个标签以复选框形式呈现<br>
+                    3. 已选中的标签高亮显示（带标签颜色边框），<span class="c-key">再次点击可取消选中（即移除）</span><br>
+                    4. 支持标签组折叠/展开<br>
+                    5. 点击确定后保存，弹窗关闭，列表标签列实时刷新
+                </p>
+
+                <hr class="desc-divider">
+
+                <div class="sub-title">4.3.1 单条移除标签（两种方式）</div>
+                <p class="indent"><span class="c-key">方式一：弹窗内移除</span></p>
+                <p class="indent" style="padding-left: 32px;">
+                    打开打标签弹窗 → 在顶部"已选标签"区域找到目标标签 → 点击标签右侧 ✕ → 标签从已选区消失 → 点确定保存
+                </p>
+                <p class="indent"><span class="c-key">方式二：列表快捷移除</span></p>
+                <p class="indent" style="padding-left: 32px;">
+                    鼠标悬浮在线索行的标签上 → 标签右上角浮现 ✕ 按钮 → 点击 ✕ → 弹出二次确认"确定移除标签「XXX」吗？" → 确认后即时移除，无需刷新页面
+                </p>
+
+                <div class="note-box">
+                    列表快捷移除适合快速操作单个标签，弹窗内移除适合批量调整多个标签。两种方式均实时生效，无需额外保存操作（弹窗方式需点确定）。
+                </div>
+
+                <div class="danger-box">
+                    产线隔离规则：业务线A线索池的打标签弹窗中，只显示关联了"业务线A"产线的标签。其他产线线索池同理。
+                </div>
+
+                <hr class="desc-divider">
+
+                <div class="sub-title">4.4 批量打标签</div>
+                <p class="indent">勾选多条线索后，顶部出现批量操作栏，点击<span class="c-key">"批量打标签"</span>弹出批量打标弹窗。</p>
+
+                <p class="indent"><strong>弹窗交互：</strong></p>
+                <p class="indent" style="padding-left: 32px;">
+                    1. 弹窗标题为"批量打标签"<br>
+                    2. 顶部<span style="color: #1890FF;">蓝色提示条</span>显示"已选择 N 条线索，选中的标签将追加到每条线索的已有标签上"<br>
+                    3. 标签选择区与单条打标签弹窗一致（按标签组分区展示，checkbox 勾选）<br>
+                    4. 底部黄色提示："若某条线索打标后超过 20 个标签上限，该条将跳过并在结果中提示"<br>
+                    5. 确认按钮文案为"确认打标"（区别于单条的"确定"）
+                </p>
+
+                <p class="indent"><strong>批量规则：</strong></p>
+                <p class="indent" style="padding-left: 32px;">
+                    1. 单次最多选择 <span class="c-key">100条</span> 线索，超出时提示"单次最多操作100条"<br>
+                    2. <span class="c-note">追加模式</span>：选中的标签追加到每条线索已有标签上，不覆盖原有标签<br>
+                    3. 如果某条线索打标后超过20个标签上限，该条跳过并记录<br>
+                    4. 提交后 Toast 提示"<strong>N条成功，M条因标签上限跳过</strong>"
+                </p>
+
+                <hr class="desc-divider">
+
+                <div class="sub-title">4.5 批量移除标签</div>
+                <p class="indent">勾选多条线索后，点击批量操作栏中的<span class="c-key">"批量移除标签"</span>弹出批量移除弹窗。</p>
+
+                <p class="indent"><strong>弹窗交互：</strong></p>
+                <p class="indent" style="padding-left: 32px;">
+                    1. 弹窗标题为"批量移除标签"<br>
+                    2. 顶部<span style="color: #A8071A;">红色提示条</span>显示"已选择 N 条线索，勾选要移除的标签"<br>
+                    3. 展示所有已选线索的<span class="c-key">共有标签</span>（取并集展示），每个标签后标注"<strong>N/M条共有</strong>"<br>
+                    4. 全部线索共有的标签正常色显示；仅部分线索拥有的标签以<span style="color: #999;">灰色</span>展示，并附橙色提示"仅N/M条有"<br>
+                    5. 底部黄色提示："灰色标签表示仅部分线索拥有，勾选后仅从拥有该标签的线索上移除"<br>
+                    6. 确认按钮为<span style="color: #FF4D4F;">红色边框</span>样式（"确认移除"），区别于打标签的蓝色按钮
+                </p>
+
+                <p class="indent"><strong>移除规则：</strong></p>
+                <p class="indent" style="padding-left: 32px;">
+                    1. 勾选标签后点确认，系统仅从<strong>拥有该标签的线索</strong>上移除，不影响的无线索<br>
+                    2. 支持同时勾选多个标签批量移除<br>
+                    3. 提交后 Toast 提示"已为 N 条线索移除 M 个标签"
+                </p>
+
+                <hr class="desc-divider">
+
+                <div class="sub-title">4.6 标签筛选</div>
+                <p class="indent">在线索池列表的筛选栏中，<span class="c-key">新增"标签筛选"下拉组件</span>。</p>
+                <p class="indent">筛选交互：</p>
+                <p class="indent" style="padding-left: 32px;">
+                    1. 下拉面板按标签组 → 一级标签 → 二级标签的树形结构展示<br>
+                    2. 支持搜索标签名称<br>
+                    3. 选中一级标签时自动包含其下所有二级标签<br>
+                    4. 支持同时选择多个标签
+                </p>
+                <p class="indent">筛选逻辑：</p>
+                <p class="indent" style="padding-left: 32px;">
+                    <span class="c-key">同一标签组内</span>多个标签为 OR（或）关系 — 线索命中任一标签即符合<br>
+                    <span class="c-key">不同标签组之间</span>为 AND（且）关系 — 线索需同时命中各标签组的条件
+                </p>
+
+                <div class="info-box">
+                    举例：筛选"标签组A-一级标签A" + "标签组B-抖音广告"，结果为"一级标签A且来自抖音广告"的线索。
+                    筛选"标签组A-一级标签A" + "标签组A-一级标签B"，结果为"一级标签A或一级标签B"的线索。
+                </div>
+
+                <hr class="desc-divider">
+
+                <div class="sub-title">4.7 标签操作写入跟进记录</div>
+                <p class="indent">线索列表中对标签的<span class="c-key">新增</span>和<span class="c-key">移除</span>操作，均需自动写入该线索的<span class="c-key">跟进记录</span>中，确保标签变更历史可追溯。</p>
+
+                <p class="indent"><strong>记录规则：</strong></p>
+                <p class="indent" style="padding-left: 32px;">
+                    1. <span class="c-key">单条打标签/移除标签</span>：操作完成后，在该线索的跟进记录中自动新增一条记录<br>
+                    2. <span class="c-key">标签提交</span>：标签变更部分同样写入跟进记录（）<br>
+                    3. <span style="color: #999;">批量打标签/移除标签：不写入跟进记录</span>（批量操作通过"标签操作日志"查询，避免跟进记录冗余）
+                </p>
+
+                <p class="indent"><strong>跟进记录内容格式：</strong></p>
+                <table class="mock-table" style="width: auto;">
+                    <thead><tr><th>字段</th><th>示例</th><th>说明</th></tr></thead>
+                    <tbody>
+                        <tr><td>操作人</td><td>张三 (80012345)</td><td>当前操作人姓名 + 工号</td></tr>
+                        <tr><td>操作时间</td><td>2026-07-08 14:32:08</td><td>精确到秒</td></tr>
+                        <tr><td>操作类型</td><td>添加标签 / 移除标签</td><td>区分新增和移除</td></tr>
+                        <tr><td>标签明细</td><td>添加了：一级标签A、急需下单<br>移除了：一级标签B</td><td>列出具体变更的标签名称</td></tr>
+                        <tr><td>操作来源</td><td>线索池手动 / 批量打标</td><td>标识操作入口</td></tr>
+                    </tbody>
+                </table>
+
+                <div class="note-box">
+                    标签操作的跟进记录与常规跟进记录（通话记录、备注等）在同一个跟进记录列表中展示，按时间倒序排列。记录类型为"标签变更"，可用筛选器单独筛选查看。
+                </div>
+            </div>
+        </div>
+
+        <!-- ===== 说明：标签检索线索 ===== -->
+        <div class="page-section" id="desc-tag-search">
+            <div class="desc-header">
+                <div class="desc-breadcrumb">V1.0.0 > 标签检索线索</div>
+                <h2>标签检索线索</h2>
+            </div>
+            <div class="desc-content">
+                <div class="sub-title">6.1 功能定位</div>
+                <p class="indent"><span class="c-key">标签检索线索</span>是一个跨产线的全局线索检索页面，允许用户通过组合标签条件快速定位目标线索集合，突破单一产线线索池的限制。</p>
+                <p class="indent">菜单路径：<span class="c-note">CRM → 线索标签管理 → 标签检索线索</span></p>
+
+                <div class="info-box">
+                    与各线索池列表中的"标签筛选"不同，本页面的核心价值在于：<br>
+                    1. <strong>跨产线检索</strong> — 不再局限于某个产线，可一次检索所有产线中符合标签条件的线索<br>
+                    2. <strong>多维组合</strong> — 支持多个标签组、多级标签的复杂组合条件<br>
+                    3. <strong>统计视图</strong> — 提供匹配结果的产线分布等聚合统计
+                </div>
+
+                <hr class="desc-divider">
+
+                <div class="sub-title">6.2 检索条件区域</div>
+                <p class="indent">页面顶部为检索条件区域，包含以下筛选项：</p>
+                <p class="indent" style="padding-left: 32px;">
+                    <span class="c-key">所属产线：</span>下拉选择，限定检索范围。选择"全部产线"时跨产线检索，选择具体产线时仅检索该产线线索。<br>
+                    <span class="c-key">标签组筛选：</span>下拉选择标签组，缩小标签选择范围。<br>
+                    <span class="c-key">选择标签：</span>标签输入框，支持搜索和选择多个标签。已选标签以带颜色的 tag 形式展示在输入框中，可点击 × 移除。
+                </p>
+
+                <div class="sub-title">6.3 匹配逻辑切换</div>
+                <p class="indent">提供两种匹配逻辑切换：</p>
+                <p class="indent" style="padding-left: 32px;">
+                    <span class="c-key">AND（同时满足）：</span>线索必须同时拥有所有已选标签才命中。适用于精确筛选场景，如"一级标签A 且 抖音广告"。<br>
+                    <span class="c-key">OR（满足任一）：</span>线索拥有任一已选标签即命中。适用于扩大范围场景，如"一级标签A 或 一级标签B"。
+                </p>
+                <p class="indent">默认匹配逻辑为 AND。</p>
+
+                <div class="note-box">
+                    标签组内的 OR/AND 逻辑仅作用于全局检索页。各产线线索池列表中的"标签筛选"仍保持原有逻辑（组内OR、组间AND）。
+                </div>
+
+                <hr class="desc-divider">
+
+                <div class="sub-title">6.4 检索结果统计卡片</div>
+                <p class="indent">检索条件区域下方展示 2 个统计卡片，实时反映匹配结果的聚合数据：</p>
+                <p class="indent" style="padding-left: 32px;">
+                    <strong>匹配线索总数：</strong>符合当前标签条件的线索总条数<br>
+                    <strong>覆盖产线数：</strong>匹配线索涉及了多少个产线
+                </p>
+
+                <hr class="desc-divider">
+
+                <div class="sub-title">6.5 检索结果列表</div>
+                <p class="indent">列表展示字段：手机号、所属产线、标签、线索来源、最后跟进时间、操作。</p>
+                <p class="indent">操作列包含：详情、打标签。点击"打标签"弹出与线索池中一致的打标签弹窗。</p>
+                <p class="indent">结果列表支持：</p>
+                <p class="indent" style="padding-left: 32px;">
+                    1. 按产线二次筛选（列表内筛选栏）<br>
+                    2. 勾选线索后<span class="c-key">批量打标签</span>（复用线索池打标签弹窗）<br>
+                    3. <span class="c-note">导出结果</span>为 Excel 文件
+                </p>
+
+                <hr class="desc-divider">
+
+                <div class="sub-title">6.6 产线分布统计视图</div>
+                <p class="indent">在检索结果列表下方，以卡片形式展示匹配线索在各产线的分布情况。每张卡片显示：</p>
+                <p class="indent" style="padding-left: 32px;">
+                    产线名称、匹配线索数、占总数百分比、进度条可视化
+                </p>
+                <p class="indent">仅显示有匹配线索的产线卡片，无匹配数据的产线不展示。</p>
+
+                <hr class="desc-divider">
+
+                <div class="sub-title">6.7 接口设计</div>
+                <table class="mock-table" style="width: auto;">
+                    <thead>
+                        <tr><th>接口</th><th>方法</th><th>路径</th><th>说明</th></tr>
+                    </thead>
+                    <tbody>
+                        <tr><td>标签检索线索</td><td>GET</td><td>/api/crm/lead/search-by-tags</td><td>tag_ids[], match_mode(AND/OR), product_line_id, page, page_size</td></tr>
+                        <tr><td>检索结果统计</td><td>GET</td><td>/api/crm/lead/search-by-tags/stats</td><td>tag_ids[], match_mode, product_line_id；返回总数、产线分布、分配占比等</td></tr>
+                        <tr><td>导出检索结果</td><td>GET</td><td>/api/crm/lead/search-by-tags/export</td><td>tag_ids[], match_mode, product_line_id；返回 Excel 文件流</td></tr>
+                    </tbody>
+                </table>
+
+                <div class="danger-box">
+                    导出功能需注意数据量控制：单次导出上限 <span class="c-key">5000条</span>，超出时提示用户缩小检索范围或联系管理员进行批量导出。
+                </div>
+
+                <hr class="desc-divider">
+
+                <div class="sub-title">6.8 权限要求</div>
+                <p class="indent">标签检索线索页面需拥有 <span class="c-note">"标签检索"</span> 权限点的角色可见。建议默认赋予超级管理员、CRM管理员、产线经理角色。客服/销售人员可视业务需要决定是否开放。</p>
+            </div>
+        </div>
+
+        <!-- ===== 说明：标签操作日志 ===== -->
+        <div class="page-section" id="desc-tag-log">
+            <div class="desc-header">
+                <div class="desc-breadcrumb">V1.0.0 > 标签操作日志</div>
+                <h2>标签操作日志</h2>
+            </div>
+            <div class="desc-content">
+                <div class="sub-title">7.1 功能定位</div>
+                <p class="indent">标签操作日志是一个<span class="c-key">全局只读查询页面</span>，记录系统中所有标签相关操作的完整历史，用于运营追溯、审计和数据分析。</p>
+                <p class="indent">菜单路径：<span class="c-note">CRM → 线索标签管理 → 标签操作日志</span></p>
+
+                <hr class="desc-divider">
+
+                <div class="sub-title">7.2 记录范围</div>
+                <p class="indent">以下操作均会产生日志记录：</p>
+                <p class="indent" style="padding-left: 32px;">
+                    1. <span class="c-key">线索打标</span> — 单条/批量为线索添加标签（来源：线索池手动、批量打标）<br>
+                    2. <span class="c-key">线索移除标签</span> — 单条/批量移除线索标签（来源：线索池手动、批量移除）<br>
+                    3. <span class="c-key">标签配置变更</span> — 新建/编辑/启停标签组和标签（记录配置操作）<br>
+                    4. <span class="c-key">触发事件执行</span> — 标签触发事件（如标记线索无效）的系统自动操作
+                </p>
+
+                <hr class="desc-divider">
+
+                <div class="sub-title">7.3 日志字段定义</div>
+                <table class="mock-table" style="width: auto;">
+                    <thead><tr><th>字段</th><th>类型</th><th>说明</th></tr></thead>
+                    <tbody>
+                        <tr><td>操作时间</td><td>datetime</td><td>精确到秒，如 2026-07-01 14:32:08</td></tr>
+                        <tr><td>操作人</td><td>string</td><td>操作人姓名</td></tr>
+                        <tr><td>工号</td><td>string</td><td>格式示例：(80012345)，8位数字</td></tr>
+                        <tr><td>操作类型</td><td>enum</td><td>添加标签 / 移除标签 / 标签配置变更 / 触发事件</td></tr>
+                        <tr><td>所属产线</td><td>string</td><td>线索所属产线（业务线A/业务线B/业务线C/业务线D/业务线E）</td></tr>
+                        <tr><td>线索手机号</td><td>string</td><td>脱敏显示，如 138****5678</td></tr>
+                        <tr><td>标签名称</td><td>string</td><td>被操作的标签名，多个标签以逗号分隔</td></tr>
+                        <tr><td>操作来源</td><td>enum</td><td>线索池手动 / 批量打标 / 标签管理 / 系统触发</td></tr>
+                    </tbody>
+                </table>
+
+                <div class="note-box">
+                    触发事件产生的日志需以特殊样式标记（如红色背景行），便于快速识别"线索被标记无效"的操作链路，追溯到具体操作人和标签。
+                </div>
+
+                <hr class="desc-divider">
+
+                <div class="sub-title">7.4 筛选条件</div>
+                <p class="indent" style="padding-left: 32px;">
+                    <span class="c-key">操作类型：</span>下拉选择，支持多选（添加标签/移除标签/标签配置变更/触发事件）<br>
+                    <span class="c-key">所属产线：</span>下拉选择，支持多选<br>
+                    <span class="c-key">操作人工号/姓名：</span>模糊搜索<br>
+                    <span class="c-key">线索手机号：</span>精确/模糊搜索<br>
+                    <span class="c-key">标签名称：</span>模糊搜索<br>
+                    <span class="c-key">操作时间范围：</span>日期区间选择器，默认最近30天
+                </p>
+
+                <hr class="desc-divider">
+
+                <div class="sub-title">7.5 数据模型</div>
+                <table class="mock-table" style="width: auto;">
+                    <thead><tr><th>表</th><th>核心字段</th><th>说明</th></tr></thead>
+                    <tbody>
+                        <tr><td>tag_operation_log</td><td>id, operator_name, operator_no, operation_type, product_line, lead_phone, tag_names, source, triggered_event, created_at</td><td>标签操作日志表（新增）</td></tr>
+                    </tbody>
+                </table>
+
+                <hr class="desc-divider">
+
+                <div class="sub-title">7.6 接口设计</div>
+                <table class="mock-table" style="width: auto;">
+                    <thead><tr><th>接口</th><th>方法</th><th>路径</th><th>说明</th></tr></thead>
+                    <tbody>
+                        <tr><td>查询操作日志</td><td>GET</td><td>/api/crm/tag-log/list</td><td>分页查询，支持多条件筛选</td></tr>
+                        <tr><td>导出操作日志</td><td>GET</td><td>/api/crm/tag-log/export</td><td>返回 Excel 文件流，上限10000条</td></tr>
+                    </tbody>
+                </table>
+
+                <hr class="desc-divider">
+
+                <div class="sub-title">7.7 日志写入时机</div>
+                <p class="indent">日志在以下接口调用成功后自动写入：</p>
+                <p class="indent" style="padding-left: 32px;">
+                    POST /api/crm/lead/add-tags — 每个标签×每条线索生成一条日志<br>
+                    POST /api/crm/lead/remove-tags — 同上<br>
+                    POST/PUT /api/crm/tag-group/* — 标签组增删改<br>
+                    POST/PUT /api/crm/tag/* — 标签增删改<br>
+                    触发事件执行时 — 额外写入一条"触发事件"类型日志
+                </p>
+
+                <hr class="desc-divider">
+
+                <div class="sub-title">7.8 权限要求</div>
+                <p class="indent">标签操作日志页面需拥有 <span class="c-note">crm:tag:log:menu</span> 权限点。建议默认赋予超级管理员、CRM管理员角色。产线经理可视需要开放。</p>
+
+                <div class="info-box">
+                    日志数据建议保留至少 <strong>180天</strong>，超期数据可归档至冷存储，不影响主表查询性能。
+                </div>
+            </div>
+        </div>
+
+        <!-- ===== 说明：改动范围与权限 ===== -->
+        <div class="page-section" id="desc-impact">
+            <div class="desc-header">
+                <div class="desc-breadcrumb">V1.0.0 > 改动范围与权限</div>
+                <h2>改动范围与权限设计</h2>
+            </div>
+            <div class="desc-content">
+                <div class="sub-title">7.1 新增页面</div>
+                <p class="indent">标签组管理页（CRM → 线索标签管理 → 标签组管理）</p>
+                <p class="indent">标签管理页（CRM → 线索标签管理 → 标签管理）</p>
+                <p class="indent">标签检索线索页（CRM → 线索标签管理 → 标签检索线索）</p>
+                <p class="indent">标签操作日志页（CRM → 线索标签管理 → 标签操作日志）</p>
+
+                <div class="sub-title">7.2 改造页面</div>
+                <div class="sub-title">7.3 改动页面</div>
+                <p class="indent">业务线A线索池、业务线B线索池、业务线C线索池、业务线D线索池、业务线E线索池 — 共 5 个列表页，均需：</p>
+                <p class="indent" style="padding-left: 32px;">
+                    1. 表格新增"标签"列<br>
+                    2. 筛选栏新增"标签筛选"下拉<br>
+                    3. 批量操作栏新增"批量打标签"和"批量移除标签"按钮<br>
+                    4. 单行操作区新增"打标签"入口
+                </p>
+
+                <hr class="desc-divider">
+
+                <div class="sub-title">7.4 接口清单</div>
+                <p class="indent">详见原型页中的接口设计概要表。共涉及 19 个新增接口，涵盖标签组 CRUD、标签 CRUD、线索打标签/移除标签、标签树查询、标签检索线索及导出、获取常用标签、恢复线索有效、标签操作日志查询及导出。</p>
+
+                <hr class="desc-divider">
+
+                <div class="sub-title">7.5 权限控权点</div>
+                <p class="indent">本次需求共需标记 <span class="c-key">11 个权限控权点</span>（菜单 + 按钮），开发只需在对应 UI 元素上做权限标识，上线后在系统角色权限模块中按需配置即可：</p>
+                <p class="indent" style="padding-left: 32px;">
+                    1. <span class="c-note">crm:tag:menu</span> — 线索标签管理菜单可见性<br>
+                    2. <span class="c-note">crm:tag:group:create</span> — 新建标签组按钮<br>
+                    3. <span class="c-note">crm:tag:group:edit</span> — 标签组编辑/启停操作<br>
+                    4. <span class="c-note">crm:tag:tag:create</span> — 新建标签按钮<br>
+                    5. <span class="c-note">crm:tag:tag:edit</span> — 标签编辑/启停操作<br>
+                    6. <span class="c-note">crm:lead:tag:batch</span> — 批量打标签/批量移除标签按钮<br>
+                    7. <span class="c-note">crm:tag:search:menu</span> — 标签检索线索菜单可见性<br>
+                    8. <span class="c-note">crm:tag:search:export</span> — 标签检索结果导出按钮<br>
+                    9. <span class="c-note">crm:tag:trigger:edit</span> — 编辑二级标签弹窗"触发事件"字段<br>
+                    10. <span class="c-note">crm:tag:log:menu</span> — 标签操作日志菜单可见性<br>
+                    11. <span class="c-note">crm:lead:firstcall:restore</span> — 标签"恢复为有效"按钮
+                </p>
+
+                <div class="info-box">
+                    未在清单中的操作（如查看列表、单条打标签、标签筛选）<strong>默认可见，无需权限控制</strong>。
+                </div>
+
+                <hr class="desc-divider">
+
+                <div class="sub-title">7.6 数据迁移</div>
+                <p class="indent">本需求为全新功能，不涉及历史数据迁移。上线后由 CRM 管理员初始化标签体系即可。</p>
+
+                <hr class="desc-divider">
+
+                <div class="sub-title">7.7 后续迭代方向</div>
+                <p class="indent"><span class="c-gray">1. 自动打标：根据线索行为（如访问页面、咨询关键词）自动关联标签</span></p>
+                <p class="indent"><span class="c-gray">2. 标签画像：基于标签分布生成客户群体画像分析</span></p>
+                <p class="indent"><span class="c-gray">3. 标签导入导出：支持 Excel 批量导入标签配置、导出线索标签数据</span></p>
+                <p class="indent"><span class="c-gray">4. 标签有效期：支持设置标签自动过期时间</span></p>
+            </div>
+        </div>
+
+    </div>
+</div>
+
+<script>
+    function switchPage(pageId, navEl) {
+        document.querySelectorAll('#protoPanel .page-section').forEach(el => el.classList.remove('active'));
+        const target = document.getElementById(pageId);
+        if (target) target.classList.add('active');
+
+        const descId = pageId.replace('page-', 'desc-');
+        document.querySelectorAll('#descPanel .page-section').forEach(el => el.classList.remove('active'));
+        const descTarget = document.getElementById(descId);
+        if (descTarget) descTarget.classList.add('active');
+
+        document.querySelectorAll('.nav-item').forEach(el => el.classList.remove('active'));
+        if (navEl) navEl.classList.add('active');
+
+        document.getElementById('protoPanel').scrollTop = 0;
+        document.getElementById('descPanel').scrollTop = 0;
+
+        if (window.location.hash.replace('#', '') !== pageId) {
+            history.replaceState(null, '', '#' + pageId);
+        }
+    }
+
+    function toggleGroup(titleEl) {
+        const items = titleEl.nextElementSibling;
+        const arrow = titleEl.querySelector('.arrow');
+        items.classList.toggle('collapsed');
+        arrow.classList.toggle('open');
+    }
+
+    function toggleSidebar() {
+        var sidebar = document.getElementById('sidebar');
+        var toggle = document.getElementById('sidebarToggle');
+        var mainArea = document.querySelector('.main-area');
+        var isCollapsed = sidebar.classList.toggle('collapsed');
+        toggle.classList.toggle('collapsed', isCollapsed);
+        mainArea.classList.toggle('expanded', isCollapsed);
+        toggle.innerHTML = isCollapsed ? '&#9654;' : '&#9664;';
+        toggle.title = isCollapsed ? '展开目录' : '收起目录';
+    }
+
+    window.addEventListener('DOMContentLoaded', function() {
+        var hash = window.location.hash.replace('#', '');
+        if (hash) {
+            var navEl = document.querySelector('[onclick*="' + hash + '"]');
+            switchPage(hash, navEl);
+        }
+    });
+    window.addEventListener('hashchange', function() {
+        var hash = window.location.hash.replace('#', '');
+        if (hash) {
+            var navEl = document.querySelector('[onclick*="' + hash + '"]');
+            switchPage(hash, navEl);
+        }
+    });
+
+    // ===== Space + Drag 画布平移（Axure 方案） =====
+    (function() {
+        var spaceDown = false;
+        var dragging = false;
+        var mouseX, mouseY;
+        var mainArea, protoPanel, descPanel;
+
+        // 空格键按下 → 启用拖拽模式
+        document.addEventListener('keydown', function(e) {
+            if (e.key !== ' ') return;
+            var t = (e.target.tagName || '').toLowerCase();
+            if (t === 'input' || t === 'textarea' || t === 'select') return;
+            e.preventDefault();
+            if (spaceDown) return;
+            spaceDown = true;
+            enableDragMode();
+        });
+
+        document.addEventListener('keyup', function(e) {
+            if (e.key !== ' ') return;
+            spaceDown = false;
+            disableDragMode();
+        });
+
+        function enableDragMode() {
+            mainArea = document.querySelector('.main-area');
+            protoPanel = document.getElementById('protoPanel');
+            descPanel = document.getElementById('descPanel');
+
+            // 创建透明覆盖层，阻止浏览器干预
+            if (!document.getElementById('dragOverlay')) {
+                var overlay = document.createElement('div');
+                overlay.id = 'dragOverlay';
+                overlay.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;z-index:99999;cursor:grab;';
+                document.body.appendChild(overlay);
+            }
+
+            var overlay = document.getElementById('dragOverlay');
+            overlay.addEventListener('mousedown', startDrag);
+        }
+
+        function disableDragMode() {
+            if (dragging) stopDrag();
+            var overlay = document.getElementById('dragOverlay');
+            if (overlay) {
+                overlay.removeEventListener('mousedown', startDrag);
+                overlay.remove();
+            }
+        }
+
+        function startDrag(e) {
+            e.preventDefault();
+            dragging = true;
+            mouseX = e.clientX;
+            mouseY = e.clientY;
+
+            var overlay = document.getElementById('dragOverlay');
+            if (overlay) overlay.style.cursor = 'grabbing';
+
+            document.addEventListener('mousemove', onDrag);
+            document.addEventListener('mouseup', stopDrag);
+        }
+
+        function onDrag(e) {
+            if (!dragging) return;
+            var changeX = e.clientX - mouseX;
+            var changeY = e.clientY - mouseY;
+
+            // 增量更新：每帧只移动差值
+            mainArea.scrollLeft -= changeX;
+            protoPanel.scrollTop -= changeY;
+            descPanel.scrollTop -= changeY;
+
+            // 更新坐标基准
+            mouseX = e.clientX;
+            mouseY = e.clientY;
+        }
+
+        function stopDrag() {
+            dragging = false;
+            var overlay = document.getElementById('dragOverlay');
+            if (overlay) overlay.style.cursor = 'grab';
+            document.removeEventListener('mousemove', onDrag);
+            document.removeEventListener('mouseup', stopDrag);
+        }
+
+        window.addEventListener('blur', function() {
+            spaceDown = false;
+            disableDragMode();
+        });
+    })();
+</script>
+</body>
+</html>

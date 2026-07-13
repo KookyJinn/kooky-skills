@@ -1,0 +1,321 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>BRD - 业务需求文档</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", "Noto Sans CJK SC", sans-serif;
+            background: #f8f9fa;
+            color: #2c3e50;
+            line-height: 1.7;
+            font-size: 14px;
+        }
+
+        /* ===== 顶部栏 ===== */
+        .brd-header {
+            background: #2c3e50;
+            color: white;
+            padding: 20px 32px;
+            position: sticky;
+            top: 0;
+            z-index: 100;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+        }
+        .brd-title {
+            font-size: 22px;
+            font-weight: 700;
+            letter-spacing: 1px;
+        }
+        .brd-subtitle {
+            font-size: 12px;
+            opacity: 0.75;
+            margin-top: 4px;
+            letter-spacing: 0.5px;
+        }
+
+        /* ===== 主体布局 ===== */
+        .brd-body {
+            display: flex;
+            min-height: calc(100vh - 80px);
+        }
+
+        /* ===== 侧边栏 ===== */
+        .brd-sidebar {
+            width: 200px;
+            min-width: 200px;
+            background: white;
+            border-right: 1px solid #e8e8e8;
+            padding: 20px 0;
+            position: sticky;
+            top: 80px;
+            height: calc(100vh - 80px);
+            overflow-y: auto;
+            transition: width 0.25s ease, min-width 0.25s ease, padding 0.25s ease;
+        }
+        .brd-sidebar.collapsed {
+            width: 0;
+            min-width: 0;
+            padding: 20px 0;
+            overflow: hidden;
+            border-right: none;
+        }
+        .brd-sidebar.collapsed .nav-item { display: none; }
+        .sidebar-toggle {
+            cursor: pointer;
+            text-align: center;
+            padding: 8px 16px;
+            color: #888;
+            font-size: 14px;
+            user-select: none;
+            transition: color 0.2s;
+        }
+        .sidebar-toggle:hover { color: #2c3e50; background: #f5f5f5; }
+        .nav-item {
+            padding: 10px 24px;
+            cursor: pointer;
+            font-size: 13px;
+            color: #555;
+            border-left: 3px solid transparent;
+            transition: all 0.15s ease;
+        }
+        .nav-item:hover {
+            background: #f5f6fa;
+            color: #2c3e50;
+        }
+        .nav-item.active {
+            color: #6366f1;
+            font-weight: 600;
+            background: #f0f0ff;
+            border-left-color: #6366f1;
+        }
+
+        /* ===== 主内容区 ===== */
+        .brd-content {
+            flex: 1;
+            padding: 36px 48px;
+            max-width: 960px;
+        }
+        .brd-content section {
+            margin-bottom: 40px;
+        }
+        .brd-content h2 {
+            font-size: 20px;
+            font-weight: 700;
+            color: #2c3e50;
+            border-bottom: 2px solid #6366f1;
+            padding-bottom: 10px;
+            margin-bottom: 20px;
+        }
+        .brd-content h3 {
+            font-size: 15px;
+            font-weight: 600;
+            color: #444;
+            margin: 16px 0 8px;
+        }
+        .brd-content p {
+            margin: 8px 0;
+            color: #555;
+            line-height: 1.8;
+        }
+
+        /* ===== 表格 ===== */
+        .brd-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 12px 0;
+            background: white;
+            border-radius: 6px;
+            overflow: hidden;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.06);
+        }
+        .brd-table th {
+            background: #f0f2f5;
+            font-weight: 600;
+            font-size: 13px;
+            text-align: left;
+            padding: 10px 14px;
+            border: 1px solid #e8e8e8;
+            color: #444;
+        }
+        .brd-table td {
+            padding: 10px 14px;
+            border: 1px solid #e8e8e8;
+            font-size: 13px;
+            vertical-align: top;
+        }
+        .brd-table tr:nth-child(even) td {
+            background: #fafbfc;
+        }
+        .label-cell {
+            font-weight: 600;
+            color: #555;
+            background: #f8f9fa !important;
+            white-space: nowrap;
+        }
+
+        /* ===== 功能卡片 ===== */
+        .feature-card {
+            background: white;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            border: 1px solid #e8e8e8;
+            overflow: hidden;
+            box-shadow: 0 1px 4px rgba(0,0,0,0.04);
+        }
+        .feature-header {
+            padding: 14px 20px;
+            background: #f8f9fa;
+            border-bottom: 1px solid #e8e8e8;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+        .feature-num {
+            font-size: 12px;
+            font-weight: 700;
+            color: white;
+            background: #6366f1;
+            padding: 2px 8px;
+            border-radius: 4px;
+            letter-spacing: 0.5px;
+        }
+        .feature-name {
+            font-size: 15px;
+            font-weight: 600;
+            color: #2c3e50;
+        }
+        .feature-table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+        .feature-table td {
+            padding: 10px 20px;
+            border-bottom: 1px solid #f0f0f0;
+            font-size: 13px;
+            vertical-align: top;
+        }
+        .feature-table tr:last-child td {
+            border-bottom: none;
+        }
+        .feature-table .label-cell {
+            width: 100px;
+            font-weight: 600;
+            color: #888;
+            font-size: 12px;
+            background: transparent !important;
+        }
+
+        /* ===== 标签 ===== */
+        .tag {
+            display: inline-block;
+            padding: 2px 10px;
+            border-radius: 10px;
+            font-size: 11px;
+            font-weight: 600;
+            letter-spacing: 0.3px;
+        }
+        .tag-confirmed {
+            background: #e6f4ea;
+            color: #1a7f37;
+        }
+        .tag-pending {
+            background: #fff3e0;
+            color: #d46b08;
+        }
+        .tag-na {
+            background: #f0f0f0;
+            color: #888;
+        }
+
+        /* ===== 提示框 ===== */
+        .info-box {
+            background: #e8f4fd;
+            border-left: 4px solid #1890ff;
+            padding: 12px 18px;
+            margin: 12px 0;
+            border-radius: 0 6px 6px 0;
+            font-size: 13px;
+            color: #155724;
+        }
+        .warn-box {
+            background: #fff1f0;
+            border-left: 4px solid #ff4d4f;
+            padding: 12px 18px;
+            margin: 12px 0;
+            border-radius: 0 6px 6px 0;
+            font-size: 13px;
+            color: #9B0000;
+        }
+        .note-box {
+            background: #fffbe6;
+            border-left: 4px solid #faad14;
+            padding: 12px 18px;
+            margin: 12px 0;
+            border-radius: 0 6px 6px 0;
+            font-size: 13px;
+            color: #614700;
+        }
+
+        /* ===== 页脚 ===== */
+        .brd-footer {
+            text-align: center;
+            padding: 24px;
+            color: #aaa;
+            font-size: 11px;
+            border-top: 1px solid #e8e8e8;
+            margin-top: 48px;
+        }
+
+        /* ===== 打印优化 ===== */
+        @media print {
+            .brd-sidebar, .sidebar-toggle { display: none !important; }
+            .brd-header { position: static; }
+            .brd-content { max-width: none; padding: 20px; }
+            .feature-card, .brd-table { break-inside: avoid; }
+        }
+    </style>
+</head>
+<body>
+
+<div class="brd-container">
+    <!-- 在此插入 BRD 内容 -->
+</div>
+
+<script>
+function toggleSidebar() {
+    var sidebar = document.getElementById('sidebar');
+    sidebar.classList.toggle('collapsed');
+    var toggle = sidebar.querySelector('.sidebar-toggle');
+    toggle.textContent = sidebar.classList.contains('collapsed') ? '▶' : '◀';
+}
+
+function scrollToSection(id, el) {
+    var section = document.getElementById(id);
+    if (section) {
+        section.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+    document.querySelectorAll('.nav-item').forEach(function(item) {
+        item.classList.remove('active');
+    });
+    if (el) el.classList.add('active');
+}
+
+// 滚动时高亮当前 section
+window.addEventListener('scroll', function() {
+    var sections = document.querySelectorAll('.brd-content section');
+    var navItems = document.querySelectorAll('.nav-item');
+    var scrollPos = window.scrollY + 120;
+    sections.forEach(function(section, i) {
+        if (section.offsetTop <= scrollPos && section.offsetTop + section.offsetHeight > scrollPos) {
+            navItems.forEach(function(item) { item.classList.remove('active'); });
+            if (navItems[i]) navItems[i].classList.add('active');
+        }
+    });
+});
+</script>
+
+</body>
+</html>
